@@ -351,10 +351,11 @@ func shellQuote(arg string) string {
 	}
 	safe := true
 	for _, r := range arg {
-		if !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || strings.ContainsRune("_-./:=@+,%^", r)) {
-			safe = false
-			break
+		if r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || strings.ContainsRune("_-./:=@+,%^", r) {
+			continue
 		}
+		safe = false
+		break
 	}
 	if safe {
 		return arg
