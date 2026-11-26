@@ -2,6 +2,7 @@ package manager
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -128,6 +129,7 @@ func TestParseOutdated(t *testing.T) {
 }
 
 func TestUpdatesIgnoresExitErrorWithOutput(t *testing.T) {
+	needSh(t)
 	m := Manager{
 		Name:        "test",
 		Bin:         "sh",
@@ -141,6 +143,25 @@ func TestUpdatesIgnoresExitErrorWithOutput(t *testing.T) {
 	want := []Package{{Name: "bash", Version: "2.0"}, {Name: "zod", Version: "1.0"}}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("Updates() = %#v, want %#v", got, want)
+	}
+}
+
+func needSh(t *testing.T) {
+	t.Helper()
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Skip("sh not on PATH")
+	}
+}
+
+func TestUpdatesOKExitCode(t *testing.T) {
+	needSh(t)
+	m :=Manager{Name: "test", Outdated: []string{"sh", "-c", "exit 1"}, OutdatedOK: []int{1}}
+	if got, err := m.Updates(); err != nil || len(got) != 0 {
+		t.Errorf("Updates() = %v, %v; want empty, nil for allowed exit 1", got, err)
+	}
+	m.OutdatedOK = nil
+	if _, err := m.Updates(); err == nil {
+		t.Error("Updates() error = nil, want error for exit 1 not in OutdatedOK")
 	}
 }
 
