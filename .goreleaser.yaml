@@ -17,3 +17,10 @@ nfpms:
     formats: [deb, rpm, apk]
 changelog:
   use: github
+  filters:
+    exclude:
+      - "^Merge "
+      - "^chore\\(deps\\)"
+      - "^test:"
+      - "^docs:"
+      - "hotfix:"
