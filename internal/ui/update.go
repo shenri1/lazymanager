@@ -28,8 +28,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case packagesMsg:
 		mgr, ok := m.currentManager()
-		if !ok || msg.manager != mgr.Name {
-			return m, nil
+		if !ok || msg.manager != mgr.Name || msg.seq != m.pkgSeq {
+			return m, nil // another manager, or superseded by a newer request
 		}
 		m.loadPkgs = false
 		hold := m.holdRunOutput
@@ -63,6 +63,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case updatesMsg:
+		if msg.seq != m.updSeq[msg.manager] {
+			return m, nil // superseded by a newer request for this manager
+		}
 		if m.updatesCache == nil {
 			m.updatesCache = make(map[string][]manager.Package)
 		}
@@ -83,6 +86,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.loadUpdates = false
+		sel, idx := m.updSel, m.updIdx
+		m.updSel = ""
 		if msg.err != nil {
 			m.updates = nil
 			m.updCursor = 0
@@ -94,6 +99,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.updates = msg.pkgs
 		m.updCursor = 0
+		if sel != "" && len(msg.pkgs) > 0 { // refresh: keep the selection by name, else by position
+			m.updCursor = clamp(idx, 0, len(msg.pkgs)-1)
+			for i, p := range msg.pkgs {
+				if p.Name == sel {
+					m.updCursor = i
+					break
+				}
+			}
+		}
 		m.updatesErr = ""
 		if len(msg.pkgs) >= manyUpdates && !m.updateWarned[msg.manager] {
 			m.updateWarned[msg.manager] = true
@@ -104,10 +118,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case infoMsg:
-		m.loadInfo = false
 		if msg.pkg != m.infoPkg || m.running {
-			return m, nil // stale response, or the run owns Details
+			return m, nil // stale response (spinner keeps going), or the run owns Details
 		}
+		m.loadInfo = false
 		text := msg.text
 		if msg.err != nil {
 			m.status = "info " + msg.pkg + ": " + msg.err.Error()
@@ -119,10 +133,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case searchMsg:
-		m.loadInfo = false
 		if msg.query != m.searchQuery || m.running {
 			return m, nil
 		}
+		m.loadInfo = false
 		text := msg.text
 		if msg.err != nil {
 			m.status = "search " + msg.query + ": " + msg.err.Error()
@@ -354,8 +368,23 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.input.CursorEnd()
 		return m, m.input.Focus()
 	case "d":
-		pkg, ok := m.currentPackage()
-		if !ok {
+		// Remove the item highlighted in the focused panel, never one from another.
+		var name string
+		switch m.focus {
+		case focusPackages:
+			if p, ok := m.currentPackage(); ok {
+				name = p.Name
+			}
+		case focusUpdates:
+			if u, ok := m.currentUpdate(); ok {
+				name = u.Name
+			}
+		default:
+			m.status = "focus Packages or Updates to remove a package"
+			m.statusErr = true
+			return m, nil
+		}
+		if name == "" {
 			m.status = "no package selected"
 			m.statusErr = true
 			return m, nil
@@ -367,7 +396,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.confirm = confirmRemove
-		m.confirmAt = pkg.Name
+		m.confirmAt = name
 		return m, nil
 	case "u":
 		if m.focus == focusUpdates {

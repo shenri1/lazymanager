@@ -63,6 +63,13 @@ type model struct {
 	// Managers whose last update listing failed; distinct from "still pending".
 	updatesFailed map[string]string // manager -> first line of the error
 
+	// Request ids: only the latest response of each request is applied.
+	pkgSeq int
+	updSeq map[string]int
+	// Selection to restore when a forced refresh of the Updates list returns.
+	updSel string
+	updIdx int
+
 	focus  int
 	width  int
 	height int
@@ -117,12 +124,14 @@ type model struct {
 
 type packagesMsg struct {
 	manager string
+	seq     int // request id; stale responses are dropped
 	pkgs    []manager.Package
 	err     error
 }
 
 type updatesMsg struct {
 	manager string
+	seq     int // request id (per manager); stale responses are dropped
 	pkgs    []manager.Package
 	err     error
 }
@@ -187,12 +196,12 @@ func (m model) Init() tea.Cmd {
 	}
 	if m.loadPkgs {
 		if mgr, ok := m.currentManager(); ok {
-			cmds = append(cmds, listCmd(mgr))
+			cmds = append(cmds, listCmd(mgr, 0))
 		}
 	}
 	if m.loadUpdates {
 		if mgr, ok := m.currentManager(); ok {
-			cmds = append(cmds, updatesCmd(mgr))
+			cmds = append(cmds, updatesCmd(mgr, 0))
 		}
 	}
 	// Prefetch the pending updates of every other system manager so the
@@ -206,25 +215,34 @@ func (m model) Init() tea.Cmd {
 		if hasCur && mgr.Name == cur.Name {
 			continue
 		}
-		cmds = append(cmds, updatesCmd(mgr))
+		cmds = append(cmds, updatesCmd(mgr, 0))
 	}
 	return tea.Batch(cmds...)
 }
 
 // ---- commands --------------------------------------------------------------
 
-func listCmd(mgr manager.Manager) tea.Cmd {
+func listCmd(mgr manager.Manager, seq int) tea.Cmd {
 	return func() tea.Msg {
 		pkgs, err := mgr.Installed()
-		return packagesMsg{manager: mgr.Name, pkgs: pkgs, err: err}
+		return packagesMsg{manager: mgr.Name, seq: seq, pkgs: pkgs, err: err}
 	}
 }
 
-func updatesCmd(mgr manager.Manager) tea.Cmd {
+func updatesCmd(mgr manager.Manager, seq int) tea.Cmd {
 	return func() tea.Msg {
 		pkgs, err := mgr.Updates()
-		return updatesMsg{manager: mgr.Name, pkgs: pkgs, err: err}
+		return updatesMsg{manager: mgr.Name, seq: seq, pkgs: pkgs, err: err}
 	}
+}
+
+// nextUpdSeq returns a fresh request id for name's update listing.
+func (m *model) nextUpdSeq(name string) int {
+	if m.updSeq == nil {
+		m.updSeq = make(map[string]int)
+	}
+	m.updSeq[name]++
+	return m.updSeq[name]
 }
 
 func infoCmd(mgr manager.Manager, pkg string) tea.Cmd {
@@ -374,7 +392,8 @@ func (m *model) startPackages(quiet bool) tea.Cmd {
 		m.statusErr = false
 		m.statusWarn = false
 	}
-	return tea.Batch(m.ensureSpin(), listCmd(mgr))
+	m.pkgSeq++
+	return tea.Batch(m.ensureSpin(), listCmd(mgr, m.pkgSeq))
 }
 
 // startUpdates loads the current manager's updates. With force the cache entry
@@ -391,7 +410,11 @@ func (m *model) startUpdates(force bool) tea.Cmd {
 		m.loadUpdates = false
 		return nil
 	}
+	m.updSel = ""
 	if force {
+		if u, ok := m.currentUpdate(); ok {
+			m.updSel, m.updIdx = u.Name, m.updCursor // keep the selection across the refresh
+		}
 		delete(m.updatesCache, mgr.Name)
 		delete(m.updatesFailed, mgr.Name)
 	} else if cached, ok := m.updatesCache[mgr.Name]; ok {
@@ -404,7 +427,7 @@ func (m *model) startUpdates(force bool) tea.Cmd {
 	m.updates = nil
 	m.updCursor = 0
 	m.loadUpdates = true
-	return tea.Batch(m.ensureSpin(), updatesCmd(mgr))
+	return tea.Batch(m.ensureSpin(), updatesCmd(mgr, m.nextUpdSeq(mgr.Name)))
 }
 
 // managerChanged resets the package list and loads packages and updates for
