@@ -220,3 +220,29 @@ func TestPanelAtMapsScroll(t *testing.T) {
 			panel, row, ok, focusPackages, want)
 	}
 }
+
+func TestUpdatesRefreshKeepsSelectionAndDropsStale(t *testing.T) {
+	m := New("/tmp", []manager.Manager{{Name: "dnf", Kind: "system", Outdated: []string{"dnf", "x"}}})
+	pkgs := func(names ...string) []manager.Package {
+		var p []manager.Package
+		for _, n := range names {
+			p = append(p, manager.Package{Name: n})
+		}
+		return p
+	}
+	m.updates, m.updCursor = pkgs("a", "b", "c"), 1 // "b" selected
+	m.startUpdates(true)                            // 'r': request id 1
+
+	// A response from an older request must be ignored.
+	next, _ := m.Update(updatesMsg{manager: "dnf", seq: 0, pkgs: pkgs("zzz")})
+	m = next.(model)
+	if len(m.updates) != 0 || !m.loadUpdates {
+		t.Fatalf("stale response applied: updates=%v loading=%v", m.updates, m.loadUpdates)
+	}
+
+	next, _ = m.Update(updatesMsg{manager: "dnf", seq: 1, pkgs: pkgs("a", "b", "d")})
+	m = next.(model)
+	if cur, _ := m.currentUpdate(); cur.Name != "b" {
+		t.Errorf("selection after refresh = %q, want b", cur.Name)
+	}
+}

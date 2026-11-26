@@ -283,7 +283,7 @@ func (m *model) refreshRunManager() tea.Cmd {
 			continue
 		}
 		if len(mgr.Outdated) > 0 {
-			cmds = append(cmds, updatesCmd(mgr))
+			cmds = append(cmds, updatesCmd(mgr, m.nextUpdSeq(mgr.Name)))
 		}
 	}
 	if currentRan {
