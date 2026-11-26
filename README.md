@@ -34,7 +34,7 @@ lazymanager --version
 | mouse | Click to focus and select; scroll wheel moves the list or scrolls Details |
 | `/` | Filters packages (case-insensitive; `esc` clears the filter) |
 | `s` | Searches the remote repository |
-| `i` | Installs a package |
+| `i` | Installs one or more packages (space-separated, e.g. `htop btop`) |
 | `d` | Removes the selected package (confirmation required) |
 | `u` | Upgrades the selected package or update (confirmation required) |
 | `U` | Upgrades all packages (confirmation required) |
