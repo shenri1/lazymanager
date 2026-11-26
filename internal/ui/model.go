@@ -331,7 +331,7 @@ func (m *model) setDetails(title, text string) {
 	}
 	m.runDone = false
 	m.detailsTitle = title
-	m.details.SetContent(strings.ReplaceAll(text, "\t", "    "))
+	m.details.SetContent(strings.ReplaceAll(stripANSI(text), "\t", "    "))
 	m.details.GotoTop()
 }
 

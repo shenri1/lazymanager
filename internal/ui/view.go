@@ -302,10 +302,7 @@ func (m model) detailLines(w int) []string {
 	raw := strings.Split(m.details.View(), "\n")
 	lines := make([]string, 0, len(raw))
 	for _, line := range raw {
-		if !strings.Contains(line, "\x1b") {
-			line = fit(line, w)
-		}
-		lines = append(lines, line)
+		lines = append(lines, fit(line, w))
 	}
 	return lines
 }

@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"io"
 	"os/exec"
-	"regexp"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -22,13 +21,7 @@ var sudoBox = lipgloss.NewStyle().
 // maxRunLines caps the live output kept for a running mutation.
 const maxRunLines = 2000
 
-// ansiEscape matches the ANSI escape sequences programs use for colours,
-// cursor movement and terminal titles.
-var ansiEscape = regexp.MustCompile(`\x1b(?:\[[0-9;?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\)|[@-_])`)
-
-func stripANSI(s string) string {
-	return ansiEscape.ReplaceAllString(s, "")
-}
+func stripANSI(s string) string { return manager.Sanitize(s) }
 
 // appendOutput adds one stream segment to the visible output. 'overwrite' is
 // used for progress bars: the segment replaces the last line instead of

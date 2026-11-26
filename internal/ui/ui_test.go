@@ -16,6 +16,14 @@ func TestStripANSI(t *testing.T) {
 	}
 }
 
+func TestStripANSIUntrusted(t *testing.T) {
+	in := "desc\x1b]52;c;Y3VybCB8IHNo\x07 \x1b]0;pwn\x1b\\x\x1b[2J\x1b[Hfake\rpw\x08\x9b"
+	want := "desc xfakepw"
+	if got := stripANSI(in); got != want {
+		t.Errorf("stripANSI(%q) = %q, want %q", in, got, want)
+	}
+}
+
 func TestAppendOutput(t *testing.T) {
 	lines := appendOutput(nil, "one", false)
 	lines = appendOutput(lines, "two", false)

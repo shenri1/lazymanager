@@ -42,7 +42,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.statusErr = true
 			m.statusWarn = false
 			if !m.running && !hold {
-				m.setDetails("Details: "+msg.manager, errText.Render(msg.err.Error()))
+				m.setDetails("Details: "+msg.manager, msg.err.Error())
 			}
 			return m, nil
 		}
@@ -107,7 +107,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.status = "info " + msg.pkg + ": " + msg.err.Error()
 			m.statusErr = true
 			m.statusWarn = false
-			text = errText.Render(msg.err.Error()) + "\n\n" + text
+			text = msg.err.Error() + "\n\n" + text
 		}
 		m.setDetails("Details: "+msg.pkg, text)
 		return m, nil
@@ -122,7 +122,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.status = "search " + msg.query + ": " + msg.err.Error()
 			m.statusErr = true
 			m.statusWarn = false
-			text = errText.Render(msg.err.Error()) + "\n\n" + text
+			text = msg.err.Error() + "\n\n" + text
 		} else if strings.TrimSpace(text) == "" {
 			text = "no results"
 		}

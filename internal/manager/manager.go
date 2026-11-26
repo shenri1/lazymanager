@@ -5,8 +5,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
+	"unicode"
 )
 
 // Manager describes one package manager. Every supported manager is a value in
@@ -152,11 +154,28 @@ func (m Manager) Updates() ([]Package, error) {
 	return pkgs, nil
 }
 
-// Run returns stdout, plus stderr when the command fails, so errors say why.
+// ansiEscape matches ANSI escape sequences: CSI, OSC (BEL or ST terminated),
+// and two-byte escapes.
+var ansiEscape = regexp.MustCompile(`\x1b(?:\[[0-9;?]*[ -/]*[@-~]|\][^\x07\x1b]*(?:\x07|\x1b\\)?|[@-_])`)
+
+// Sanitize strips escape sequences and control characters (except \n and \t)
+// from untrusted program output so it cannot drive the terminal.
+func Sanitize(s string) string {
+	s = ansiEscape.ReplaceAllString(s, "")
+	return strings.Map(func(r rune) rune {
+		if r != '\n' && r != '\t' && unicode.IsControl(r) {
+			return -1
+		}
+		return r
+	}, s)
+}
+
+// Run returns sanitized stdout, plus stderr when the command fails, so errors
+// say why. Output is untrusted (package descriptions come from the internet).
 func Run(c *exec.Cmd) (string, error) {
 	out, err := c.Output()
 	if ee, ok := err.(*exec.ExitError); ok {
 		out = append(out, ee.Stderr...)
 	}
-	return string(out), err
+	return Sanitize(string(out)), err
 }
