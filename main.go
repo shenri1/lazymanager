@@ -17,6 +17,7 @@ const version = "0.1.0"
 func main() {
 	showVersion := flag.Bool("version", false, "print version and exit")
 	dir := flag.String("C", "", "directory to inspect (default: current directory)")
+	noProject := flag.Bool("no-project", false, "only system managers; skip project managers")
 	flag.Parse()
 
 	if *showVersion {
@@ -48,7 +49,28 @@ func main() {
 		fail(err)
 	}
 
-	program := tea.NewProgram(ui.New(abs, manager.Detect(abs)), tea.WithAltScreen(), tea.WithMouseCellMotion())
+	managers := manager.Detect(abs)
+	// Project managers can execute repo-controlled code (Gemfile, .yarnrc,
+	// .cargo/config.toml, composer plugins), so gate them behind trust.
+	if manager.HasProject(managers) {
+		switch {
+		case *noProject:
+			managers = manager.SystemOnly(managers)
+		case !manager.IsTrusted(abs):
+			fmt.Printf("%s contains project files. Listing dependencies may run code from this repo.\nTrust this directory? [y/N] ", abs)
+			var ans string
+			fmt.Scanln(&ans)
+			if ans == "y" || ans == "Y" {
+				if err := manager.Trust(abs); err != nil {
+					fmt.Fprintln(os.Stderr, "lazymanager: could not save trust:", err)
+				}
+			} else {
+				managers = manager.SystemOnly(managers)
+			}
+		}
+	}
+
+	program := tea.NewProgram(ui.New(abs, managers), tea.WithAltScreen(), tea.WithMouseCellMotion())
 	if _, err := program.Run(); err != nil {
 		fail(err)
 	}
