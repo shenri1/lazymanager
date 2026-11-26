@@ -95,7 +95,14 @@ func NeedsSudo(m Manager) bool {
 // prefix is non-interactive (-n); the password, when needed, is obtained by
 // the TUI beforehand through SudoAuth.
 func (m Manager) Cmd(mutate bool, action []string, args ...string) *exec.Cmd {
-	argv := append(append([]string{}, action...), args...)
+	for _, a := range args {
+		if strings.HasPrefix(a, "-") {
+			c := exec.Command("false")
+			c.Err = fmt.Errorf("refusing argument starting with '-': %q", a)
+			return c
+		}
+	}
+	argv :=append(append([]string{}, action...), args...)
 	if mutate && NeedsSudo(m) {
 		argv = append([]string{"sudo", "-n"}, argv...)
 	}

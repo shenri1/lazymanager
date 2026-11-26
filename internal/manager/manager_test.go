@@ -192,6 +192,12 @@ func TestCmdSudo(t *testing.T) {
 		}
 	})
 
+	t.Run("rejects option-like arg", func(t *testing.T) {
+		if err := m.Cmd(true, m.Install, "--index-url=x").Run(); err == nil {
+			t.Error("expected error for arg starting with '-'")
+		}
+	})
+
 	t.Run("non-mutate", func(t *testing.T) {
 		got := m.Cmd(false, m.Install, "pkg").Args
 		want := []string{"echo", "install", "pkg"}
