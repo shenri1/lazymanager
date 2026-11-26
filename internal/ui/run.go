@@ -241,7 +241,8 @@ func waitRun(ch <-chan runMsg) tea.Cmd {
 }
 
 func (m *model) renderRun() {
-	m.details.SetContent(strings.ReplaceAll(strings.Join(m.runLines, "\n"), "\t", "    "))
+	text := strings.ReplaceAll(strings.Join(m.runLines, "\n"), "\t", "    ")
+	m.details.SetContent(wrapOutput(text, m.details.Width))
 	if m.runFollow {
 		m.details.GotoBottom()
 	}
