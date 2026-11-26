@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/shenri1/lazymanager/internal/manager"
 )
@@ -38,26 +39,16 @@ type layout struct {
 	bodyH            int
 }
 
-func (m model) layout() layout {
-	leftW := m.width * 35 / 100
-	if leftW < 24 {
-		leftW = 24
-	}
-	if leftW > m.width-24 {
-		leftW = m.width / 2
-	}
-	if leftW < 10 {
-		leftW = 10
-	}
-	if leftW >= m.width {
-		leftW = m.width - 1
-	}
-	rightW := m.width - leftW
+// minWidth and minHeight are the smallest terminal the panel layout supports;
+// below it View shows a notice instead of overlapping, clipped panels.
+const minWidth, minHeight = 60, 15
 
+func (m model) tooSmall() bool { return m.width < minWidth || m.height < minHeight }
+
+func (m model) layout() layout {
+	leftW := maxInt(24, m.width*35/100)
+	rightW := m.width - leftW
 	bodyH := m.height - 1
-	if bodyH < 12 {
-		bodyH = 12
-	}
 	mgrH := bodyH * 25 / 100
 	if mgrH < 4 {
 		mgrH = 4
@@ -97,6 +88,14 @@ func (m *model) resize() {
 func (m model) View() string {
 	if m.width <= 0 || m.height <= 0 {
 		return "starting lazymanager…"
+	}
+	if m.tooSmall() {
+		msg := fmt.Sprintf("terminal too small\nneed %d×%d, have %d×%d", minWidth, minHeight, m.width, m.height)
+		lines := strings.Split(msg, "\n")
+		for i := range lines {
+			lines[i] = fit(lines[i], m.width)
+		}
+		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, warnText.Render(strings.Join(lines, "\n")))
 	}
 	if m.showHelp {
 		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, m.helpView())
@@ -189,7 +188,7 @@ func (m model) managerLine(mgr manager.Manager, selected bool, w int) string {
 	}
 	plain := text + "  " + suffix
 	avail := maxInt(0, w-2)
-	if len([]rune(plain)) > avail {
+	if ansi.StringWidth(plain) > avail {
 		return listItem(fit(plain, avail), selected, w)
 	}
 
@@ -197,7 +196,7 @@ func (m model) managerLine(mgr manager.Manager, selected bool, w int) string {
 		countStyle = countStyle.Background(lipgloss.Color("237"))
 		base := "▸ " + text + "  "
 		pad := ""
-		if used := len([]rune(base)) + len([]rune(suffix)); used < w {
+		if used := ansi.StringWidth(base) + ansi.StringWidth(suffix); used < w {
 			pad = strings.Repeat(" ", w-used)
 		}
 		return selectedItem.Render(base) + countStyle.Render(suffix) + selectedItem.Render(pad)
@@ -476,23 +475,20 @@ func scrollStart(cursor, total, visible int) int {
 	return start
 }
 
-// fit shortens s to at most w runes, adding an ellipsis when it does not fit.
+// fit shortens s to at most w terminal columns (wide CJK/emoji count as 2,
+// ANSI styling is preserved), adding an ellipsis when it does not fit.
 func fit(s string, w int) string {
 	if w <= 0 {
 		return ""
 	}
-	r := []rune(s)
-	if len(r) <= w {
+	if ansi.StringWidth(s) <= w {
 		return s
 	}
-	if w == 1 {
-		return string(r[:1])
-	}
-	return string(r[:w-1]) + "…"
+	return ansi.Truncate(s, w, "…")
 }
 
 func padRight(s string, w int) string {
-	n := len([]rune(s))
+	n := ansi.StringWidth(s)
 	if n >= w {
 		return s
 	}

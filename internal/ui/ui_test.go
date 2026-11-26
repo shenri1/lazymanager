@@ -4,7 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
+
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/shenri1/lazymanager/internal/manager"
 )
@@ -244,5 +247,46 @@ func TestUpdatesRefreshKeepsSelectionAndDropsStale(t *testing.T) {
 	m = next.(model)
 	if cur, _ := m.currentUpdate(); cur.Name != "b" {
 		t.Errorf("selection after refresh = %q, want b", cur.Name)
+	}
+}
+
+// TestViewFitsTerminal renders wide (CJK/emoji) content and checks that the
+// frame never exceeds the terminal, so borders stay aligned.
+func TestViewFitsTerminal(t *testing.T) {
+	for _, size := range [][2]int{{60, 15}, {80, 24}, {120, 40}, {40, 10}, {20, 5}} {
+		for _, help := range []bool{false, true} {
+			m := New("/tmp", []manager.Manager{{Name: "apt", Kind: "system", Outdated: []string{"x"}}})
+			m.width, m.height = size[0], size[1]
+			m.resize()
+			m.packages = []manager.Package{{Name: "日本語パッケージ名前がとても長い", Version: "1.0"}, {Name: "emoji-🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀", Version: "2.0"}}
+			m.filtered = m.packages
+			m.updates = m.packages
+			m.setDetails("Details: 中文", "描述：这是一个非常长的中文描述，用于测试宽字符是否会超出面板的边界并破坏布局。🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀")
+			m.showHelp = help
+			lines := strings.Split(m.View(), "\n")
+			if len(lines) > m.height {
+				t.Errorf("%dx%d help=%v: %d lines, want <= %d", m.width, m.height, help, len(lines), m.height)
+			}
+			for i, line := range lines {
+				if w := ansi.StringWidth(line); w > m.width {
+					t.Errorf("%dx%d help=%v: line %d width %d > %d: %q", m.width, m.height, help, i, w, m.width, ansi.Strip(line))
+				}
+			}
+		}
+	}
+}
+
+func TestFitWide(t *testing.T) {
+	for _, tc := range []struct {
+		in string
+		w  int
+	}{{"日本語テキスト", 5}, {"abc🚀def", 4}, {"plain", 10}, {"日本", 1}} {
+		got := fit(tc.in, tc.w)
+		if ansi.StringWidth(got) > tc.w {
+			t.Errorf("fit(%q, %d) = %q, width %d", tc.in, tc.w, got, ansi.StringWidth(got))
+		}
+		if p := padRight(got, tc.w); ansi.StringWidth(p) != tc.w && ansi.StringWidth(got) <= tc.w {
+			t.Errorf("padRight(%q, %d) width %d", got, tc.w, ansi.StringWidth(p))
+		}
 	}
 }
