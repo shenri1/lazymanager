@@ -1,0 +1,15 @@
+name = "ayu-light"
+
+[colors]
+background = "#FAFAFA"
+foreground = "#5C6773"
+accent = "#FF9940"
+border_active = "#FF9940"
+border_inactive = "#ABB0B6"
+title = "#399EE6"
+selected_bg = "#D9E4F0"
+selected_fg = "#242936"
+dim = "#ABB0B6"
+success = "#86B300"
+warning = "#FA8D3E"
+error = "#F07178"

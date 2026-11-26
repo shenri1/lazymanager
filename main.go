@@ -6,11 +6,14 @@ import (
 	"os"
 	"path/filepath"
 	"runtime/debug"
+	"slices"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/shenri1/lazymanager/internal/config"
 	"github.com/shenri1/lazymanager/internal/manager"
+	"github.com/shenri1/lazymanager/internal/theme"
 	"github.com/shenri1/lazymanager/internal/ui"
 )
 
@@ -32,12 +35,43 @@ func main() {
 	showVersion := flag.Bool("version", false, "print version and exit")
 	dir := flag.String("C", "", "directory to inspect (default: current directory)")
 	noProject := flag.Bool("no-project", false, "only system managers; skip project managers")
+	themeName := flag.String("theme", "", "theme name (overrides config.toml)")
+	listThemes := flag.Bool("list-themes", false, "list available themes and exit")
+	printConfig := flag.Bool("print-config", false, "print the default configuration and exit")
 	flag.Parse()
 
 	if *showVersion {
 		fmt.Println("lazymanager " + buildVersion())
 		return
 	}
+	if *printConfig {
+		fmt.Print(config.DefaultTOML)
+		return
+	}
+	if *listThemes {
+		printThemes()
+		return
+	}
+
+	cfg, warnings := config.Load()
+
+	name := strings.TrimSpace(cfg.Theme.Name)
+	if *themeName != "" {
+		name = strings.TrimSpace(*themeName)
+	}
+	active, terr := theme.Resolve(name, config.ThemesDir())
+	if terr != nil {
+		warnings = append(warnings, fmt.Sprintf("theme: %v; using %s", terr, config.DefaultTheme))
+		active = theme.Default()
+	}
+	if len(cfg.Theme.Colors) > 0 {
+		var errs []error
+		active, errs = active.WithOverrides(cfg.Theme.Colors)
+		for _, e := range errs {
+			warnings = append(warnings, "theme: "+e.Error())
+		}
+	}
+	noColor := os.Getenv("NO_COLOR") != ""
 
 	cwd := *dir
 	if cwd == "" {
@@ -64,6 +98,11 @@ func main() {
 	}
 
 	managers := manager.Detect(abs)
+	if len(cfg.Managers.Disabled) > 0 {
+		managers = slices.DeleteFunc(managers, func(m manager.Manager) bool {
+			return cfg.IsManagerDisabled(m.Name)
+		})
+	}
 	// Project managers can execute repo-controlled code (Gemfile, .yarnrc,
 	// .cargo/config.toml, composer plugins), so gate them behind trust.
 	if manager.HasProject(managers) {
@@ -84,9 +123,27 @@ func main() {
 		}
 	}
 
-	program := tea.NewProgram(ui.New(abs, managers), tea.WithAltScreen(), tea.WithMouseCellMotion())
+	program := tea.NewProgram(
+		ui.New(abs, managers, ui.Options{Theme: active, Config: cfg, Warnings: warnings, NoColor: noColor}),
+		tea.WithAltScreen(),
+		tea.WithMouseCellMotion(),
+	)
 	if _, err := program.Run(); err != nil {
 		fail(err)
+	}
+}
+
+func printThemes() {
+	seen := make(map[string]bool)
+	for _, name := range theme.Builtins() {
+		fmt.Println(name)
+		seen[name] = true
+	}
+	for _, name := range theme.ListUser(config.ThemesDir()) {
+		if !seen[name] {
+			fmt.Println(name)
+			seen[name] = true
+		}
 	}
 }
 
