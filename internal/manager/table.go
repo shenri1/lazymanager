@@ -140,7 +140,7 @@ var Table = []Manager{
 		Name:        "go",
 		Kind:        "project",
 		Bin:         "go",
-		List:        []string{"go", "list", "-m", "-f", "{{if not .Indirect}}{{.Path}} {{.Version}}{{end}}", "all"},
+		List:        []string{"go", "list", "-m", "-f", "{{if and (not .Main) (not .Indirect)}}{{.Path}} {{.Version}}{{end}}", "all"},
 		Install:     []string{"go", "get"},
 		Remove:      []string{"go", "mod", "edit", "-droprequire"},
 		Upgrade:     []string{"go", "get", "-u"},
