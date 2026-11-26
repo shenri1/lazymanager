@@ -1,0 +1,16 @@
+version: 2
+builds:
+  - env: [CGO_ENABLED=0]
+    goos: [linux, darwin, freebsd]
+    goarch: [amd64, arm64]
+    ldflags: -s -w -X main.version={{.Version}}
+archives:
+  - formats: [tar.gz]
+checksum:
+  name_template: checksums.txt
+nfpms:
+  - maintainer: shenri1
+    description: TUI for package managers
+    formats: [deb, rpm, apk]
+changelog:
+  use: github
