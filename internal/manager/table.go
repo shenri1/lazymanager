@@ -47,6 +47,7 @@ var Table = []Manager{
 		UpgradeAll: []string{"pacman", "-Syu", "--noconfirm"},
 		Info:       []string{"pacman", "-Qi"},
 		Outdated:   []string{"pacman", "-Qu"},
+		OutdatedOK: []int{1}, // -Qu exits 1 when nothing is outdated
 	},
 	{
 		Name:       "zypper",
