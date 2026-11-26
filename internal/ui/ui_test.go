@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"testing"
@@ -21,6 +22,24 @@ func TestStripANSIUntrusted(t *testing.T) {
 	want := "desc xfakepw"
 	if got := stripANSI(in); got != want {
 		t.Errorf("stripANSI(%q) = %q, want %q", in, got, want)
+	}
+}
+
+func TestSudoErrText(t *testing.T) {
+	for _, tc := range []struct {
+		err   string
+		text  string
+		retry bool
+	}{
+		{"sudo: Sorry, try again.", "wrong password, try again", true},
+		{"sudo: 1 incorrect password attempt", "wrong password, try again", true},
+		{"sudo: alice is not in the sudoers file.\nmore", "alice is not in the sudoers file.", false},
+		{`sudo: exec: "sudo": executable file not found in $PATH`, `exec: "sudo": executable file not found in $PATH`, false},
+	} {
+		text, retry := sudoErrText(errors.New(tc.err))
+		if text != tc.text || retry != tc.retry {
+			t.Errorf("sudoErrText(%q) = %q, %v; want %q, %v", tc.err, text, retry, tc.text, tc.retry)
+		}
 	}
 }
 
