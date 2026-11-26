@@ -155,7 +155,7 @@ func needSh(t *testing.T) {
 
 func TestUpdatesOKExitCode(t *testing.T) {
 	needSh(t)
-	m :=Manager{Name: "test", Outdated: []string{"sh", "-c", "exit 1"}, OutdatedOK: []int{1}}
+	m := Manager{Name: "test", Outdated: []string{"sh", "-c", "exit 1"}, OutdatedOK: []int{1}}
 	if got, err := m.Updates(); err != nil || len(got) != 0 {
 		t.Errorf("Updates() = %v, %v; want empty, nil for allowed exit 1", got, err)
 	}
