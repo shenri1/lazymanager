@@ -6,7 +6,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
-	"lazymanager/internal/manager"
+	"github.com/shenri1/lazymanager/internal/manager"
 )
 
 // ---- styles ----------------------------------------------------------------

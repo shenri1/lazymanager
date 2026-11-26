@@ -9,7 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 
-	"lazymanager/internal/manager"
+	"github.com/shenri1/lazymanager/internal/manager"
 )
 
 const (

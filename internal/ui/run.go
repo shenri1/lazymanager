@@ -9,7 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"lazymanager/internal/manager"
+	"github.com/shenri1/lazymanager/internal/manager"
 )
 
 var sudoBox = lipgloss.NewStyle().

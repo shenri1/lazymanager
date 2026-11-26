@@ -7,7 +7,7 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 
-	"lazymanager/internal/manager"
+	"github.com/shenri1/lazymanager/internal/manager"
 )
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {

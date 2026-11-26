@@ -1,4 +1,4 @@
-module lazymanager
+module github.com/shenri1/lazymanager
 
 go 1.27.4
 

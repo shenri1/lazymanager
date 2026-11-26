@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	"lazymanager/internal/manager"
+	"github.com/shenri1/lazymanager/internal/manager"
 )
 
 func TestStripANSI(t *testing.T) {

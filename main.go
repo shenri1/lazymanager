@@ -5,14 +5,27 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"lazymanager/internal/manager"
-	"lazymanager/internal/ui"
+	"github.com/shenri1/lazymanager/internal/manager"
+	"github.com/shenri1/lazymanager/internal/ui"
 )
 
-const version = "0.1.0"
+// version is set with -ldflags "-X main.version=..."; otherwise it comes from
+// the module version embedded by `go install` (see buildVersion).
+var version = ""
+
+func buildVersion() string {
+	if version != "" {
+		return version
+	}
+	if bi, ok := debug.ReadBuildInfo(); ok && bi.Main.Version != "" {
+		return bi.Main.Version
+	}
+	return "dev"
+}
 
 func main() {
 	showVersion := flag.Bool("version", false, "print version and exit")
@@ -21,7 +34,7 @@ func main() {
 	flag.Parse()
 
 	if *showVersion {
-		fmt.Println("lazymanager " + version)
+		fmt.Println("lazymanager " + buildVersion())
 		return
 	}
 
