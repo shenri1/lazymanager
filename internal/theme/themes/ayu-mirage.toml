@@ -1,0 +1,15 @@
+name = "ayu-mirage"
+
+[colors]
+background = "#1F2430"
+foreground = "#CBCCC6"
+accent = "#FFCC66"
+border_active = "#FFCC66"
+border_inactive = "#5C6773"
+title = "#73D0FF"
+selected_bg = "#33415E"
+selected_fg = "#CBCCC6"
+dim = "#5C6773"
+success = "#BAE67E"
+warning = "#FFA759"
+error = "#F28779"

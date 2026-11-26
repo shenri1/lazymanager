@@ -109,9 +109,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		m.updatesErr = ""
-		if len(msg.pkgs) >= manyUpdates && !m.updateWarned[msg.manager] {
+		if len(msg.pkgs) >= m.cfg.Managers.ManyUpdatesThreshold && !m.updateWarned[msg.manager] {
 			m.updateWarned[msg.manager] = true
-			m.status = fmt.Sprintf("%s: %d updates pending — press U to upgrade all", msg.manager, len(msg.pkgs))
+			m.status = fmt.Sprintf("%s: %d updates pending — press %s to upgrade all", msg.manager, len(msg.pkgs), m.keys.label(actUpgradeAll))
 			m.statusErr = false
 			m.statusWarn = true
 		}
@@ -238,10 +238,10 @@ func (m model) requestQuit() (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	case !m.quitWarned:
 		m.quitWarned = true
-		m.status = "a command is running — press q/ctrl+c again to quit after it finishes"
+		m.status = fmt.Sprintf("a command is running — press %s again to quit after it finishes", m.keys.label(actQuit))
 	case !m.quitWaiting:
 		m.quitWaiting = true
-		m.status = "waiting for " + m.runLabel + " to finish… (q/ctrl+c again forces quit; may corrupt the package database)"
+		m.status = fmt.Sprintf("waiting for %s to finish… (%s again forces quit; may corrupt the package database)", m.runLabel, m.keys.label(actQuit))
 	default:
 		return m, tea.Quit
 	}
@@ -259,18 +259,21 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleSudoKey(msg)
 	}
 	if m.showHelp {
-		if key == "q" {
+		switch m.keys.action(key) {
+		case actQuit:
 			return m.requestQuit()
-		}
-		switch key {
-		case "?", "esc":
+		case actHelp:
 			m.showHelp = false
-		case "j", "down":
+		case actDown:
 			_, off := m.helpWindow()
 			m.helpScroll = off + 1
-		case "k", "up":
+		case actUp:
 			_, off := m.helpWindow()
 			m.helpScroll = maxInt(0, off-1)
+		default:
+			if key == "esc" {
+				m.showHelp = false
+			}
 		}
 		return m, nil
 	}
@@ -309,44 +312,44 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, cmd
 	}
 
-	switch key {
-	case "q":
+	switch m.keys.action(key) {
+	case actQuit:
 		return m.requestQuit()
-	case "?":
+	case actHelp:
 		m.showHelp = true
 		m.helpScroll = 0
-	case "tab", "l", "right":
+	case actNextPanel:
 		m.focus = (m.focus + 1) % 4
-	case "shift+tab", "h", "left":
+	case actPrevPanel:
 		m.focus = (m.focus + 3) % 4
-	case "1":
+	case actFocusManagers:
 		m.focus = focusManagers
-	case "2":
+	case actFocusPackages:
 		m.focus = focusPackages
-	case "3":
+	case actFocusUpdates:
 		m.focus = focusUpdates
-	case "4":
+	case actFocusDetails:
 		m.focus = focusDetails
-	case "j", "down":
-		return m.moveBy(1, 1)
-	case "k", "up":
+	case actUp:
 		return m.moveBy(-1, 1)
-	case "pgdown":
+	case actDown:
+		return m.moveBy(1, 1)
+	case actPageDown:
 		return m.moveBy(1, m.pageSize())
-	case "pgup":
+	case actPageUp:
 		return m.moveBy(-1, m.pageSize())
-	case "g":
+	case actTop:
 		return m.jump(-1)
-	case "G":
+	case actBottom:
 		return m.jump(1)
-	case "/":
+	case actFilter:
 		m.focus = focusPackages
 		m.prompt = promptFilter
 		m.input.Placeholder = ""
 		m.input.SetValue(m.filter)
 		m.input.CursorEnd()
 		return m, m.input.Focus()
-	case "s":
+	case actSearch:
 		mgr, ok := m.currentManager()
 		if !ok {
 			return m, nil
@@ -360,7 +363,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.input.SetValue("")
 		m.input.Placeholder = "package name"
 		return m, m.input.Focus()
-	case "i":
+	case actInstall:
 		mgr, ok := m.currentManager()
 		if !ok {
 			return m, nil
@@ -375,7 +378,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.input.Placeholder = "package name"
 		m.input.CursorEnd()
 		return m, m.input.Focus()
-	case "d":
+	case actRemove:
 		// Remove the item highlighted in the focused panel, never one from another.
 		var name string
 		switch m.focus {
@@ -406,7 +409,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.confirm = confirmRemove
 		m.confirmAt = name
 		return m, nil
-	case "u":
+	case actUpgrade:
 		if m.focus == focusUpdates {
 			pkg, ok := m.currentUpdate()
 			if !ok {
@@ -439,7 +442,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.confirm = confirmUpgrade
 		m.confirmAt = pkg.Name
 		return m, nil
-	case "U":
+	case actUpgradeAll:
 		mgr, ok := m.currentManager()
 		if !ok || len(mgr.UpgradeAll) == 0 {
 			m.status = "upgrade all is not supported"
@@ -448,7 +451,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		m.confirm = confirmUpgradeAll
 		return m, nil
-	case "A":
+	case actUpgradeEverything:
 		targets, pending, skipped := upgradeTargets(m.managers, m.updatesCache, m.updatesFailed)
 		if len(pending) > 0 {
 			m.status = "still checking updates for " + strings.Join(pending, ", ") + "…"
@@ -459,7 +462,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		if len(targets) == 0 {
 			if len(skipped) > 0 {
-				m.status = "update check failed for " + strings.Join(skipped, ", ") + " — select it and press r to retry"
+				m.status = "update check failed for " + strings.Join(skipped, ", ") + " — select it and press " + m.keys.label(actRefresh) + " to retry"
 				m.statusErr = true
 				return m, nil
 			}
@@ -470,12 +473,12 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.confirmTargets = targets
 		m.confirmSkipped = skipped
 		return m, nil
-	case "r":
+	case actRefresh:
 		m.status = "refreshing…"
 		m.statusErr = false
 		m.statusWarn = false
 		return m, tea.Batch(m.startPackages(true), m.startUpdates(true))
-	case "enter":
+	case actInfo:
 		switch m.focus {
 		case focusManagers:
 			m.focus = focusPackages

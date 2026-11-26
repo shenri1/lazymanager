@@ -1,0 +1,13 @@
+name = "terminal"
+
+[colors]
+accent = "6"
+border_active = "6"
+border_inactive = "8"
+title = "4"
+selected_bg = "4"
+selected_fg = "15"
+dim = "8"
+success = "2"
+warning = "3"
+error = "1"
