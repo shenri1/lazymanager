@@ -120,6 +120,7 @@ type model struct {
 	statusErr  bool
 	statusWarn bool
 	showHelp   bool
+	helpScroll int
 }
 
 type packagesMsg struct {

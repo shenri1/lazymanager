@@ -99,7 +99,7 @@ func (m model) View() string {
 		return "starting lazymanager…"
 	}
 	if m.showHelp {
-		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, helpView())
+		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, m.helpView())
 	}
 	if m.sudoOpen {
 		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, m.sudoView())
@@ -370,8 +370,7 @@ func (m model) statusBar() string {
 	return statusText.Render(fit(hints, m.width))
 }
 
-func helpView() string {
-	body := `lazymanager — keys
+const helpText = `lazymanager — keys
 
   tab / shift+tab    switch panel
   ← → / h l          previous / next panel
@@ -393,7 +392,31 @@ func helpView() string {
 
   mouse              click to focus/select, wheel to move/scroll
   esc                cancel prompt / clear filter`
-	return dimPanel.Padding(1, 2).Render(body)
+
+// helpWindow returns how many body lines (everything under the title) fit and
+// the clamped scroll offset into them.
+func (m model) helpWindow() (visible, offset int) {
+	body := strings.Count(helpText, "\n") // lines after the title
+	visible = minInt(body, m.height-3)    // border top/bottom + title
+	offset = clamp(m.helpScroll, 0, maxInt(0, body-visible))
+	return visible, offset
+}
+
+// helpView fits the key list to the terminal; when it is taller than the
+// screen the title stays and the body becomes a window that j/k scroll.
+func (m model) helpView() string {
+	lines := strings.Split(helpText, "\n")
+	title, body := lines[0], lines[1:]
+	visible, offset := m.helpWindow()
+	if visible < len(body) {
+		title += " (j/k scroll)"
+	}
+	lines = append([]string{title}, body[offset:offset+visible]...)
+	w := minInt(76, m.width-4) // border + 1 col padding each side
+	for i := range lines {
+		lines[i] = fit(lines[i], w)
+	}
+	return dimPanel.Padding(0, 1).Render(strings.Join(lines, "\n"))
 }
 
 // ---- rendering helpers -----------------------------------------------------
