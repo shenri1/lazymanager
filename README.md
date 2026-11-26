@@ -4,8 +4,12 @@ A TUI package manager inspired by lazygit and lazydocker. It brings together sys
 
 ## Installation
 
+Download a binary (Linux, macOS, FreeBSD; amd64/arm64) or a `.deb`/`.rpm`/`.apk` package from the [Releases page](https://github.com/shenri1/lazymanager/releases). No Go required.
+
+Or, with Go:
+
 ```sh
-go install github.com/shenri1/lazymanager
+go install github.com/shenri1/lazymanager@latest
 ```
 
 Or, build from source:

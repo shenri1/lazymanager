@@ -9,8 +9,11 @@ archives:
 checksum:
   name_template: checksums.txt
 nfpms:
-  - maintainer: shenri1
+  - maintainer: shenri1 <105889529+shenri1@users.noreply.github.com>
     description: TUI for package managers
+    homepage: https://github.com/shenri1/lazymanager
+    license: MIT
+    section: utils
     formats: [deb, rpm, apk]
 changelog:
   use: github

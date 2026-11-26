@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime/debug"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -22,7 +23,7 @@ func buildVersion() string {
 		return version
 	}
 	if bi, ok := debug.ReadBuildInfo(); ok && bi.Main.Version != "" {
-		return bi.Main.Version
+		return strings.TrimPrefix(bi.Main.Version, "v") // match the GoReleaser build, which has no "v"
 	}
 	return "dev"
 }
