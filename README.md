@@ -5,7 +5,7 @@ A TUI package manager inspired by lazygit and lazydocker. It brings together sys
 ## Installation
 
 ```sh
-go install github.com/shenri1/lazymanager@v0.1.0
+go install github.com/shenri1/lazymanager
 ```
 
 Or, build from source:
