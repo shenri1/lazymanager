@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"unicode"
@@ -29,6 +30,7 @@ type Manager struct {
 	Detect      []string // project kind only: any of these files in cwd => applies
 	Outdated    []string // lists available updates; nil = unsupported
 	OutdatedCol int      // field index holding the NEW version; 0 means 1
+	OutdatedOK  []int    // Outdated exit codes meaning "nothing to update" (e.g. pacman -Qu: 1)
 }
 
 type Package struct {
@@ -150,6 +152,9 @@ func (m Manager) Updates() ([]Package, error) {
 		return nil, fmt.Errorf("%s does not support updates", m.Name)
 	}
 	out, err := Run(m.Cmd(false, m.Outdated))
+	if ee, ok := err.(*exec.ExitError); ok && slices.Contains(m.OutdatedOK, ee.ExitCode()) && strings.TrimSpace(out) == "" {
+		return nil, nil
+	}
 	if err != nil {
 		// Some commands (notably "npm outdated") exit non-zero when updates
 		// exist. Keep parsing whenever there is usable output.
