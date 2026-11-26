@@ -200,17 +200,39 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// requestQuit is shared by q and ctrl+c. While a command runs, quitting needs
+// confirmation; the confirmed quit waits for the command to finish (killing a
+// package manager mid-transaction can corrupt its database), and a further
+// press forces the exit.
+func (m model) requestQuit() (tea.Model, tea.Cmd) {
+	switch {
+	case !m.running:
+		return m, tea.Quit
+	case !m.quitWarned:
+		m.quitWarned = true
+		m.status = "a command is running — press q/ctrl+c again to quit after it finishes"
+	case !m.quitWaiting:
+		m.quitWaiting = true
+		m.status = "waiting for " + m.runLabel + " to finish… (q/ctrl+c again forces quit; may corrupt the package database)"
+	default:
+		return m, tea.Quit
+	}
+	m.statusErr = false
+	m.statusWarn = true
+	return m, nil
+}
+
 func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	key := msg.String()
 	if key == "ctrl+c" {
-		return m, tea.Quit
+		return m.requestQuit()
 	}
 	if m.sudoOpen {
 		return m.handleSudoKey(msg)
 	}
 	if m.showHelp {
 		if key == "q" {
-			return m, tea.Quit
+			return m.requestQuit()
 		}
 		if key == "?" || key == "esc" {
 			m.showHelp = false
@@ -254,14 +276,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	switch key {
 	case "q":
-		if m.running && !m.quitWarned {
-			m.quitWarned = true
-			m.status = "a command is running — press q again to quit"
-			m.statusErr = false
-			m.statusWarn = true
-			return m, nil
-		}
-		return m, tea.Quit
+		return m.requestQuit()
 	case "?":
 		m.showHelp = true
 	case "tab", "l", "right":
