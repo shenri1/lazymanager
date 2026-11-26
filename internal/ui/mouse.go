@@ -6,7 +6,7 @@ import tea "github.com/charmbracelet/bubbletea"
 // cursor. Row -1 means the click landed on the panel title or on empty space;
 // ok is false outside every panel (including borders and the status bar).
 func (m model) panelAt(x, y int) (panel int, row int, ok bool) {
-	if m.width <= 0 || m.height <= 0 {
+	if m.width <= 0 || m.height <= 0 || m.tooSmall() {
 		return 0, 0, false
 	}
 	if x < 0 || y < 0 || x >= m.width || y >= m.height-1 {

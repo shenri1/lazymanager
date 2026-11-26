@@ -262,8 +262,15 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if key == "q" {
 			return m.requestQuit()
 		}
-		if key == "?" || key == "esc" {
+		switch key {
+		case "?", "esc":
 			m.showHelp = false
+		case "j", "down":
+			_, off := m.helpWindow()
+			m.helpScroll = off + 1
+		case "k", "up":
+			_, off := m.helpWindow()
+			m.helpScroll = maxInt(0, off-1)
 		}
 		return m, nil
 	}
@@ -307,6 +314,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.requestQuit()
 	case "?":
 		m.showHelp = true
+		m.helpScroll = 0
 	case "tab", "l", "right":
 		m.focus = (m.focus + 1) % 4
 	case "shift+tab", "h", "left":
