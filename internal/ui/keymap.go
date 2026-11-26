@@ -12,6 +12,7 @@ const (
 	actNone action = iota
 	actQuit
 	actHelp
+	actCommandLog
 	actRefresh
 	actUp
 	actDown
@@ -38,6 +39,7 @@ const (
 var actionByName = map[string]action{
 	"quit":               actQuit,
 	"help":               actHelp,
+	"command_log":        actCommandLog,
 	"refresh":            actRefresh,
 	"up":                 actUp,
 	"down":               actDown,
@@ -160,6 +162,7 @@ func helpText(k keymap) string {
 		{k.keysLabel(actUpgradeEverything), "upgrade everything"},
 		{k.keysLabel(actRefresh), "refresh packages and updates"},
 		{k.keysLabel(actInfo), "load info"},
+		{k.keysLabel(actCommandLog), "command log"},
 		{k.keysLabel(actHelp), "close help"},
 		{k.keysLabel(actQuit), "quit"},
 	}

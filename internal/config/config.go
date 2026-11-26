@@ -72,6 +72,7 @@ func (k *KeyList) UnmarshalTOML(value any) error {
 var actionOrder = []string{
 	"quit",
 	"help",
+	"command_log",
 	"refresh",
 	"up",
 	"down",
@@ -98,6 +99,7 @@ var actionOrder = []string{
 var defaultBindings = map[string]KeyList{
 	"quit":               {"q", "ctrl+c"},
 	"help":               {"?"},
+	"command_log":        {"@", "5"},
 	"refresh":            {"r"},
 	"up":                 {"k", "up"},
 	"down":               {"j", "down"},
@@ -354,6 +356,7 @@ selection_style = "bg"
 # Each action accepts one key or a list of keys.
 quit = ["q", "ctrl+c"]
 help = "?"
+command_log = ["@", "5"]
 refresh = "r"
 up = ["k", "up"]
 down = ["j", "down"]

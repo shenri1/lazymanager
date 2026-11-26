@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
@@ -75,6 +76,9 @@ func (m model) View() string {
 			lines[i] = fit(lines[i], m.width)
 		}
 		return m.styles.paintScreen(lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, m.styles.warn.Render(strings.Join(lines, "\n"))))
+	}
+	if m.showLog {
+		return m.styles.paintScreen(lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, m.logView()))
 	}
 	if m.showHelp {
 		return m.styles.paintScreen(lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, m.helpView()))
@@ -312,16 +316,21 @@ func (m model) statusBar() string {
 		return fit(prefix+m.input.View()+"  (enter/esc)", m.width)
 	}
 	if m.confirm != confirmNone {
+		var text string
 		switch m.confirm {
 		case confirmRemove:
-			return fit("Remove "+m.confirmAt+"? (y/n)", m.width)
+			text = "Remove " + m.confirmAt + "?"
 		case confirmUpgrade:
-			return fit("Upgrade "+m.confirmAt+"? (y/n)", m.width)
+			text = "Upgrade " + m.confirmAt + "?"
 		case confirmUpgradeAll:
-			return fit("Upgrade all packages? (y/n)", m.width)
+			text = "Upgrade all packages?"
 		case confirmUpgradeEverything:
-			return fit("Upgrade everything? "+upgradeSummary(m.confirmTargets, m.updatesCache, m.confirmSkipped)+" (y/n)", m.width)
+			text = "Upgrade everything? " + upgradeSummary(m.confirmTargets, m.updatesCache, m.confirmSkipped)
 		}
+		if cmd := m.confirmCommand(); cmd != "" {
+			text += " $ " + cmd
+		}
+		return fitSuffix(text, " (y/n)", m.width)
 	}
 	if m.status != "" {
 		if m.statusErr {
@@ -358,6 +367,40 @@ func (m model) statusBar() string {
 	return m.styles.status.Render(fit(hints, m.width))
 }
 
+// confirmCommand renders the exact command that will run if the user confirms.
+func (m model) confirmCommand() string {
+	switch m.confirm {
+	case confirmRemove:
+		if mgr, ok := m.currentManager(); ok {
+			return commandLine(mgr.Cmd(true, mgr.Remove, m.confirmAt))
+		}
+	case confirmUpgrade:
+		if mgr, ok := m.currentManager(); ok {
+			return commandLine(mgr.Cmd(true, mgr.Upgrade, m.confirmAt))
+		}
+	case confirmUpgradeAll:
+		if mgr, ok := m.currentManager(); ok {
+			return commandLine(mgr.Cmd(true, mgr.UpgradeAll))
+		}
+	case confirmUpgradeEverything:
+		var first string
+		n := 0
+		for _, mgr := range m.confirmTargets {
+			if cmd := commandLine(mgr.Cmd(true, mgr.UpgradeAll)); cmd != "" {
+				if first == "" {
+					first = cmd
+				}
+				n++
+			}
+		}
+		if n > 1 {
+			return fmt.Sprintf("%s (+%d more)", first, n-1)
+		}
+		return first
+	}
+	return ""
+}
+
 // helpWindow returns how many body lines (everything under the title) fit and
 // the clamped scroll offset into them.
 func (m model) helpWindow() (visible, offset int) {
@@ -382,6 +425,69 @@ func (m model) helpView() string {
 	}
 	lines = append([]string{title}, body[offset:offset+visible]...)
 	w := minInt(76, m.width-4) // border + 1 col padding each side
+	for i := range lines {
+		lines[i] = fit(lines[i], w)
+	}
+	return m.styles.panelDim.Padding(0, 1).Render(strings.Join(lines, "\n"))
+}
+
+// logBodyLen is the number of body lines (header plus entries) in the log.
+func (m model) logBodyLen() int {
+	if len(m.cmdLog) == 0 {
+		return 3 // header + blank + "no commands"
+	}
+	return 1 + len(m.cmdLog)
+}
+
+func (m model) logVisible() int {
+	return minInt(m.logBodyLen(), maxInt(1, m.height-3))
+}
+
+func (m model) logMaxScroll() int {
+	return maxInt(0, m.logBodyLen()-m.logVisible())
+}
+
+func (m model) logPageSize() int {
+	return maxInt(1, m.logVisible()-1)
+}
+
+// logView renders the session command history: time, exit code, duration and
+// the exact command line.
+func (m model) logView() string {
+	w := minInt(110, m.width-4)
+	if w < 10 {
+		w = maxInt(1, m.width-4)
+	}
+	body := []string{fmt.Sprintf("%-8s  %-4s  %-9s  %s", "TIME", "EXIT", "DURATION", "COMMAND")}
+	if len(m.cmdLog) == 0 {
+		body = append(body, "", "no commands in this session yet")
+	} else {
+		for _, e := range m.cmdLog {
+			body = append(body, fmt.Sprintf("%-8s  %-4d  %-9s  %s",
+				e.Time.Format("15:04:05"), e.ExitCode,
+				e.Duration.Round(time.Millisecond).String(), e.Command))
+		}
+	}
+	visible := minInt(len(body), maxInt(1, m.height-3))
+	offset := clamp(m.logScroll, 0, maxInt(0, len(body)-visible))
+
+	title := fmt.Sprintf("Command Log (%d)", len(m.cmdLog))
+	closeKey := m.keys.label(actCommandLog)
+	if visible < len(body) {
+		scroll := m.keys.hint(actUp, actDown)
+		if scroll == "" {
+			scroll = "j/k"
+		}
+		title += " (" + scroll + " scroll"
+		if closeKey != "" {
+			title += " · " + closeKey + " close"
+		}
+		title += ")"
+	} else if closeKey != "" {
+		title += " (" + closeKey + " close)"
+	}
+
+	lines := append([]string{title}, body[offset:offset+visible]...)
 	for i := range lines {
 		lines[i] = fit(lines[i], w)
 	}
@@ -456,6 +562,15 @@ func padRight(s string, w int) string {
 		return s
 	}
 	return s + strings.Repeat(" ", w-n)
+}
+
+// fitSuffix truncates s but always keeps suffix visible, so prompts such as
+// "(y/n)" are never cut off.
+func fitSuffix(s, suffix string, w int) string {
+	if ansi.StringWidth(s)+ansi.StringWidth(suffix) <= w {
+		return s + suffix
+	}
+	return ansi.Truncate(s, maxInt(0, w-ansi.StringWidth(suffix)), "…") + suffix
 }
 
 func maxInt(a, b int) int {
