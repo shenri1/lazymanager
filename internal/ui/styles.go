@@ -88,6 +88,11 @@ func newStyles(th theme.Theme, selectionStyle string, nerdFonts, noColor, paintB
 		paint:        paint,
 		icons:        iconSet(nerdFonts),
 	}
+	if noColor {
+		// Faint keeps secondary text distinguishable without color.
+		s.dim = base.Faint(true)
+		s.status = base.Faint(true)
+	}
 
 	// With NO_COLOR there is no SelectedBg to use; reverse video marks the
 	// focused selection and the pointer alone marks the inactive one, so focus
