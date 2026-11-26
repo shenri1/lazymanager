@@ -156,6 +156,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.sudoChecking = false
 		if msg.err != nil {
+			text, retry := sudoErrText(msg.err)
+			if !retry {
+				m.closeSudo()
+				m.status = "sudo: " + text
+				m.statusErr = true
+				m.statusWarn = false
+				return m, nil
+			}
 			m.sudoAttempts++
 			if m.sudoAttempts >= 3 {
 				m.closeSudo()
@@ -164,7 +172,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.statusWarn = false
 				return m, nil
 			}
-			m.sudoErr = "wrong password, try again"
+			m.sudoErr = text
 			m.sudoInput.SetValue("")
 			return m, m.sudoInput.Focus()
 		}

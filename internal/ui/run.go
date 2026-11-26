@@ -88,6 +88,12 @@ func (m *model) startMutation(label string, steps []step) tea.Cmd {
 	if !needsSudo {
 		return m.beginRun(label, steps)
 	}
+	if !manager.HaveSudo() {
+		m.status = "sudo not found — run lazymanager as root"
+		m.statusErr = true
+		m.statusWarn = false
+		return nil
+	}
 
 	m.pendingLabel = label
 	m.pendingSteps = steps
@@ -234,6 +240,12 @@ func (m *model) finishRun(err error) tea.Cmd {
 	}
 	if err != nil {
 		m.status = m.runLabel + ": failed"
+		for _, l := range m.runLines {
+			if strings.Contains(l, "a password is required") {
+				m.status += " — sudo asks for a password every time (timestamp_timeout=0 in sudoers?)"
+				break
+			}
+		}
 		m.statusErr = true
 	} else {
 		m.status = m.runLabel + ": done"
@@ -286,6 +298,19 @@ func exitCode(err error) int {
 		return ee.ExitCode()
 	}
 	return 1
+}
+
+// sudoErrText maps a SudoAuth error to modal text. retry is true only for a
+// wrong password; anything else (not in sudoers, sudo missing, ...) cannot be
+// fixed by retyping, so the caller should close the modal and show the reason.
+func sudoErrText(err error) (text string, retry bool) {
+	s := strings.ToLower(err.Error())
+	for _, k := range []string{"incorrect password", "try again", "no password was provided"} {
+		if strings.Contains(s, k) {
+			return "wrong password, try again", true
+		}
+	}
+	return firstLine(strings.TrimPrefix(err.Error(), "sudo: ")), false
 }
 
 // openSudo shows the password modal for the pending mutation.

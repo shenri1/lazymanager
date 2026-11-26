@@ -112,6 +112,12 @@ func (m Manager) Cmd(mutate bool, action []string, args ...string) *exec.Cmd {
 	return exec.Command(argv[0], argv[1:]...)
 }
 
+// HaveSudo reports whether a sudo executable is on PATH.
+func HaveSudo() bool {
+	_, err := lookPath("sudo")
+	return err == nil
+}
+
 // SudoCached reports whether sudo can run without a password right now
 // (cached credentials or NOPASSWD). Runs `sudo -n true`.
 func SudoCached() bool {
