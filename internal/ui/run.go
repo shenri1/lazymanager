@@ -5,14 +5,22 @@ import (
 	"io"
 	"os/exec"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/shenri1/lazymanager/internal/history"
 	"github.com/shenri1/lazymanager/internal/manager"
 )
 
 // maxRunLines caps the live output kept for a running mutation.
 const maxRunLines = 2000
+
+// maxCommandLog caps the in-memory session history shown by the Command Log.
+const maxCommandLog = 500
+
+// appendHistory is a var so tests can avoid touching the real audit file.
+var appendHistory = history.Append
 
 func stripANSI(s string) string { return manager.Sanitize(s) }
 
@@ -37,6 +45,7 @@ type runMsg struct {
 	overwrite bool
 	done      bool
 	err       error
+	command   *history.Entry
 }
 
 // step is one command in a mutation. A mutation normally has a single step;
@@ -130,6 +139,16 @@ func (m *model) beginRun(label string, steps []step) tea.Cmd {
 	m.statusErr = false
 	m.statusWarn = false
 
+	// The command line(s) stay at the top of the live output so the user can
+	// see exactly what is about to run, including the sudo prefix.
+	for _, s := range steps {
+		if len(steps) > 1 {
+			m.runLines = append(m.runLines, "── "+s.mgr.Name+" ──")
+		}
+		m.runLines = append(m.runLines, m.styles.dim.Render("$ "+commandLine(s.cmd)))
+	}
+	m.renderRun()
+
 	ch := make(chan runMsg, 256)
 	m.runCh = ch
 
@@ -137,10 +156,15 @@ func (m *model) beginRun(label string, steps []step) tea.Cmd {
 		defer close(ch)
 		var firstErr error
 		for _, s := range steps {
-			if len(steps) > 1 {
-				ch <- runMsg{text: "── " + s.mgr.Name + " ──"}
-			}
+			started := time.Now()
 			err := streamStep(s.cmd, ch)
+			entry := history.Entry{
+				Time:     started,
+				Manager:  s.mgr.Name,
+				Command:  commandLine(s.cmd),
+				ExitCode: exitCode(err),
+				Duration: time.Since(started),
+			}
 			if err != nil && firstErr == nil {
 				firstErr = err
 			}
@@ -150,6 +174,7 @@ func (m *model) beginRun(label string, steps []step) tea.Cmd {
 					ch <- runMsg{text: err.Error()}
 				}
 			}
+			ch <- runMsg{command: &entry}
 		}
 		ch <- runMsg{done: true, err: firstErr}
 	}()
@@ -216,7 +241,8 @@ func waitRun(ch <-chan runMsg) tea.Cmd {
 }
 
 func (m *model) renderRun() {
-	m.details.SetContent(strings.ReplaceAll(strings.Join(m.runLines, "\n"), "\t", "    "))
+	text := strings.ReplaceAll(strings.Join(m.runLines, "\n"), "\t", "    ")
+	m.details.SetContent(wrapOutput(text, m.details.Width))
 	if m.runFollow {
 		m.details.GotoBottom()
 	}
@@ -287,10 +313,55 @@ func (m *model) refreshRunManager() tea.Cmd {
 }
 
 func exitCode(err error) int {
+	if err == nil {
+		return 0
+	}
 	if ee, ok := err.(*exec.ExitError); ok {
 		return ee.ExitCode()
 	}
 	return 1
+}
+
+// addCommand records a finished command in the session log and appends it to
+// the audit file. Persistence is best-effort and never interrupts the TUI.
+func (m *model) addCommand(e history.Entry) {
+	m.cmdLog = append(m.cmdLog, e)
+	if len(m.cmdLog) > maxCommandLog {
+		m.cmdLog = m.cmdLog[len(m.cmdLog)-maxCommandLog:]
+	}
+	_ = appendHistory(e)
+}
+
+// commandLine renders a command for display. Arguments are shell-quoted and
+// control characters are removed so untrusted output cannot corrupt the UI.
+func commandLine(c *exec.Cmd) string {
+	if c == nil {
+		return ""
+	}
+	parts := make([]string, len(c.Args))
+	for i, arg := range c.Args {
+		parts[i] = shellQuote(arg)
+	}
+	line := manager.Sanitize(strings.Join(parts, " "))
+	return strings.NewReplacer("\n", " ", "\r", " ", "\t", " ").Replace(line)
+}
+
+func shellQuote(arg string) string {
+	if arg == "" {
+		return "''"
+	}
+	safe := true
+	for _, r := range arg {
+		if r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || strings.ContainsRune("_-./:=@+,%^", r) {
+			continue
+		}
+		safe = false
+		break
+	}
+	if safe {
+		return arg
+	}
+	return "'" + strings.ReplaceAll(arg, "'", `'\''`) + "'"
 }
 
 // sudoErrText maps a SudoAuth error to modal text. retry is true only for a

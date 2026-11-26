@@ -10,6 +10,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/shenri1/lazymanager/internal/config"
+	"github.com/shenri1/lazymanager/internal/history"
 	"github.com/shenri1/lazymanager/internal/manager"
 	"github.com/shenri1/lazymanager/internal/theme"
 )
@@ -79,6 +80,7 @@ type model struct {
 
 	details      viewport.Model
 	detailsTitle string
+	detailsRaw   string
 
 	// A mutating command currently streaming into Details.
 	running       bool
@@ -124,6 +126,11 @@ type model struct {
 	statusWarn bool
 	showHelp   bool
 	helpScroll int
+
+	// Mutation commands completed in this session.
+	cmdLog    []history.Entry
+	showLog   bool
+	logScroll int
 }
 
 type packagesMsg struct {
@@ -395,8 +402,13 @@ func (m *model) setDetails(title, text string) {
 	}
 	m.runDone = false
 	m.detailsTitle = title
-	m.details.SetContent(strings.ReplaceAll(stripANSI(text), "\t", "    "))
+	m.detailsRaw = strings.ReplaceAll(stripANSI(text), "\t", "    ")
+	m.refreshDetails()
 	m.details.GotoTop()
+}
+
+func (m *model) refreshDetails() {
+	m.details.SetContent(wrapDetails(m.detailsRaw, m.details.Width))
 }
 
 func (m *model) ensureSpin() tea.Cmd {
