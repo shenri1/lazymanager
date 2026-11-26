@@ -77,6 +77,7 @@ type model struct {
 	runDone       bool
 	runFollow     bool
 	quitWarned    bool
+	quitWaiting   bool // quit requested; exit once the running command ends
 	holdRunOutput bool
 
 	// A mutation waiting for sudo credentials, or the async cache check.

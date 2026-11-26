@@ -121,6 +121,7 @@ func (m *model) beginRun(label string, steps []step) tea.Cmd {
 	m.runDone = false
 	m.runFollow = true
 	m.quitWarned = false
+	m.quitWaiting = false
 	m.holdRunOutput = false
 	m.infoPkg = ""
 	m.loadInfo = false
@@ -240,6 +241,9 @@ func (m *model) finishRun(err error) tea.Cmd {
 	}
 	m.statusWarn = false
 	m.spinning = m.loadPkgs || m.loadInfo || m.loadUpdates
+	if m.quitWaiting {
+		return tea.Quit // user asked to quit; the command finished cleanly first
+	}
 	return m.refreshRunManager()
 }
 
