@@ -174,21 +174,25 @@ func (m model) managerLine(mgr manager.Manager, selected bool, w int) string {
 	}
 	pkgs, known := m.updatesCache[mgr.Name]
 	n := len(pkgs)
-	if !known || n == 0 {
+	var suffix string
+	countStyle := allGoodText
+	switch {
+	case m.updatesFailed[mgr.Name] != "":
+		suffix, countStyle = "!", errText // update listing failed
+	case known && n > 0:
+		suffix = fmt.Sprintf("%d↑", n)
+		if n >= manyUpdates {
+			countStyle = warnText
+		}
+	default:
 		return listItem(text, selected, w)
 	}
-
-	suffix := fmt.Sprintf("%d↑", n)
 	plain := text + "  " + suffix
 	avail := maxInt(0, w-2)
 	if len([]rune(plain)) > avail {
 		return listItem(fit(plain, avail), selected, w)
 	}
 
-	countStyle := allGoodText
-	if n >= manyUpdates {
-		countStyle = warnText
-	}
 	if selected {
 		countStyle = countStyle.Background(lipgloss.Color("237"))
 		base := "▸ " + text + "  "
@@ -337,7 +341,7 @@ func (m model) statusBar() string {
 		case confirmUpgradeAll:
 			return fit("Upgrade all packages? (y/n)", m.width)
 		case confirmUpgradeEverything:
-			return fit("Upgrade everything? "+upgradeSummary(m.confirmTargets, m.updatesCache)+" (y/n)", m.width)
+			return fit("Upgrade everything? "+upgradeSummary(m.confirmTargets, m.updatesCache, m.confirmSkipped)+" (y/n)", m.width)
 		}
 	}
 	if m.status != "" {

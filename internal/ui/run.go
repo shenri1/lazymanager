@@ -265,6 +265,7 @@ func (m *model) refreshRunManager() tea.Cmd {
 		}
 		seen[mgr.Name] = true
 		delete(m.updatesCache, mgr.Name)
+		delete(m.updatesFailed, mgr.Name)
 		if hasCur && cur.Name == mgr.Name {
 			currentRan = true
 			continue

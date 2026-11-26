@@ -115,12 +115,27 @@ func TestUpgradeTargets(t *testing.T) {
 		"flatpak": {},
 	}
 
-	targets, pending := upgradeTargets(mgrs, cache)
+	targets, pending, skipped := upgradeTargets(mgrs, cache, nil)
 	if len(targets) != 1 || targets[0].Name != "dnf" {
 		t.Errorf("targets = %#v, want [dnf]", targets)
 	}
 	if !reflect.DeepEqual(pending, []string{"brew"}) {
 		t.Errorf("pending = %#v, want [brew]", pending)
+	}
+	if len(skipped) != 0 {
+		t.Errorf("skipped = %#v, want none", skipped)
+	}
+
+	// A failed listing must not block A: it is skipped, not pending.
+	targets, pending, skipped = upgradeTargets(mgrs, cache, map[string]string{"brew": "no network"})
+	if len(pending) != 0 || !reflect.DeepEqual(skipped, []string{"brew"}) || len(targets) != 1 {
+		t.Errorf("with failed brew: targets=%v pending=%v skipped=%v", targets, pending, skipped)
+	}
+	if got := upgradeSummary(targets, cache, skipped); got != "dnf (5) — brew skipped (error)" {
+		t.Errorf("summary = %q", got)
+	}
+	if got := failureReport(skipped, map[string]string{"brew": firstLine("\n  no network\nmore")}); got != "brew: no network" {
+		t.Errorf("report = %q", got)
 	}
 }
 

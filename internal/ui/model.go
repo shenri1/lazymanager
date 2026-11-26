@@ -60,6 +60,9 @@ type model struct {
 	updateWarned map[string]bool
 	loadUpdates  bool
 
+	// Managers whose last update listing failed; distinct from "still pending".
+	updatesFailed map[string]string // manager -> first line of the error
+
 	focus  int
 	width  int
 	height int
@@ -101,6 +104,7 @@ type model struct {
 	confirm        confirmKind
 	confirmAt      string
 	confirmTargets []manager.Manager
+	confirmSkipped []string // managers left out of A because their update listing failed
 
 	searchQuery string
 	infoPkg     string
@@ -268,10 +272,15 @@ func filterPackages(pkgs []manager.Package, query string) []manager.Package {
 // upgradeTargets selects the system managers that A should upgrade. A manager
 // is a target when it supports listing updates, its cached update count is
 // positive and it has an UpgradeAll action. Systems whose manager supports
-// updates but is not in the cache yet are returned as pending.
-func upgradeTargets(mgrs []manager.Manager, cache map[string][]manager.Package) (targets []manager.Manager, pending []string) {
+// updates but is not in the cache yet are returned as pending; those whose
+// listing failed are returned as skipped instead of blocking A forever.
+func upgradeTargets(mgrs []manager.Manager, cache map[string][]manager.Package, failed map[string]string) (targets []manager.Manager, pending, skipped []string) {
 	for _, mgr := range mgrs {
 		if mgr.Kind != "system" || len(mgr.Outdated) == 0 {
+			continue
+		}
+		if _, bad := failed[mgr.Name]; bad {
+			skipped = append(skipped, mgr.Name)
 			continue
 		}
 		pkgs, known := cache[mgr.Name]
@@ -283,16 +292,21 @@ func upgradeTargets(mgrs []manager.Manager, cache map[string][]manager.Package) 
 			targets = append(targets, mgr)
 		}
 	}
-	return targets, pending
+	return targets, pending, skipped
 }
 
-// upgradeSummary renders the confirmation detail, e.g. "dnf (5), flatpak (1)".
-func upgradeSummary(targets []manager.Manager, cache map[string][]manager.Package) string {
+// upgradeSummary renders the confirmation detail, e.g.
+// "dnf (5), flatpak (1) — brew skipped (error)".
+func upgradeSummary(targets []manager.Manager, cache map[string][]manager.Package, skipped []string) string {
 	parts := make([]string, 0, len(targets))
 	for _, mgr := range targets {
 		parts = append(parts, fmt.Sprintf("%s (%d)", mgr.Name, len(cache[mgr.Name])))
 	}
-	return strings.Join(parts, ", ")
+	s := strings.Join(parts, ", ")
+	if len(skipped) > 0 {
+		s += " — " + strings.Join(skipped, ", ") + " skipped (error)"
+	}
+	return s
 }
 
 func (m model) currentManager() (manager.Manager, bool) {
@@ -379,12 +393,14 @@ func (m *model) startUpdates(force bool) tea.Cmd {
 	}
 	if force {
 		delete(m.updatesCache, mgr.Name)
+		delete(m.updatesFailed, mgr.Name)
 	} else if cached, ok := m.updatesCache[mgr.Name]; ok {
 		m.updates = cached
 		m.updCursor = 0
 		m.loadUpdates = false
 		return nil
 	}
+	delete(m.updatesFailed, mgr.Name) // retrying: back to "pending"
 	m.updates = nil
 	m.updCursor = 0
 	m.loadUpdates = true
@@ -464,6 +480,25 @@ func (m *model) infoIfChanged(old string) tea.Cmd {
 		return nil
 	}
 	return m.packageChanged()
+}
+
+// firstLine returns the first non-empty line of s, or "error" when there is none.
+func firstLine(s string) string {
+	for _, l := range strings.Split(s, "\n") {
+		if l = strings.TrimSpace(l); l != "" {
+			return l
+		}
+	}
+	return "error"
+}
+
+// failureReport lists why each skipped manager's update check failed.
+func failureReport(skipped []string, failed map[string]string) string {
+	lines := make([]string, 0, len(skipped))
+	for _, name := range skipped {
+		lines = append(lines, name+": "+failed[name])
+	}
+	return strings.Join(lines, "\n")
 }
 
 func clamp(v, lo, hi int) int {

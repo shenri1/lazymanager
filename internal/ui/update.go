@@ -69,8 +69,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.updateWarned == nil {
 			m.updateWarned = make(map[string]bool)
 		}
+		if m.updatesFailed == nil {
+			m.updatesFailed = make(map[string]string)
+		}
 		if msg.err == nil {
 			m.updatesCache[msg.manager] = msg.pkgs
+			delete(m.updatesFailed, msg.manager)
+		} else {
+			m.updatesFailed[msg.manager] = firstLine(msg.err.Error())
 		}
 		mgr, ok := m.currentManager()
 		if !ok || msg.manager != mgr.Name {
@@ -398,17 +404,26 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.confirm = confirmUpgradeAll
 		return m, nil
 	case "A":
-		targets, pending := upgradeTargets(m.managers, m.updatesCache)
+		targets, pending, skipped := upgradeTargets(m.managers, m.updatesCache, m.updatesFailed)
 		if len(pending) > 0 {
 			m.status = "still checking updates for " + strings.Join(pending, ", ") + "…"
 			return m, nil
 		}
+		if len(skipped) > 0 && !m.running {
+			m.setDetails("Details: update check failed", failureReport(skipped, m.updatesFailed))
+		}
 		if len(targets) == 0 {
+			if len(skipped) > 0 {
+				m.status = "update check failed for " + strings.Join(skipped, ", ") + " — select it and press r to retry"
+				m.statusErr = true
+				return m, nil
+			}
 			m.status = everythingUpToDate
 			return m, nil
 		}
 		m.confirm = confirmUpgradeEverything
 		m.confirmTargets = targets
+		m.confirmSkipped = skipped
 		return m, nil
 	case "r":
 		m.status = "refreshing…"
