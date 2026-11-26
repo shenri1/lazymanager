@@ -80,6 +80,7 @@ type model struct {
 
 	details      viewport.Model
 	detailsTitle string
+	detailsRaw   string
 
 	// A mutating command currently streaming into Details.
 	running       bool
@@ -401,8 +402,13 @@ func (m *model) setDetails(title, text string) {
 	}
 	m.runDone = false
 	m.detailsTitle = title
-	m.details.SetContent(strings.ReplaceAll(stripANSI(text), "\t", "    "))
+	m.detailsRaw = strings.ReplaceAll(stripANSI(text), "\t", "    ")
+	m.refreshDetails()
 	m.details.GotoTop()
+}
+
+func (m *model) refreshDetails() {
+	m.details.SetContent(wrapDetails(m.detailsRaw, m.details.Width))
 }
 
 func (m *model) ensureSpin() tea.Cmd {

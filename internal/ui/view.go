@@ -59,6 +59,11 @@ func (m *model) resize() {
 	l := m.layout()
 	m.details.Width = maxInt(1, l.rightW-2)
 	m.details.Height = maxInt(1, l.bodyH-3)
+	if m.running || m.runDone {
+		m.renderRun()
+	} else {
+		m.refreshDetails()
+	}
 	m.input.Width = clamp(m.width-42, 6, 40)
 	m.sudoInput.Width = clamp(m.width-18, 10, 42)
 }
@@ -112,7 +117,7 @@ func (m model) View() string {
 
 	left := lipgloss.JoinVertical(lipgloss.Left, mgrPanel, pkgPanel, updPanel)
 
-	detailBody := m.detailLines(maxInt(1, l.rightW-2))
+	detailBody := m.detailLines()
 	detailsTitle := m.styles.titleWith(m.styles.icons.details, m.detailsTitle)
 	detailsStyle := m.styles.title
 	loading := m.loadInfo
@@ -285,13 +290,10 @@ func (m model) allGoodLines(w, visible int) []string {
 	return lines
 }
 
-func (m model) detailLines(w int) []string {
-	raw := strings.Split(m.details.View(), "\n")
-	lines := make([]string, 0, len(raw))
-	for _, line := range raw {
-		lines = append(lines, fit(line, w))
-	}
-	return lines
+func (m model) detailLines() []string {
+	// Content is wrapped to the viewport width before SetContent, so the
+	// viewport already returns complete lines without truncation.
+	return strings.Split(m.details.View(), "\n")
 }
 
 func (m model) statusBar() string {
