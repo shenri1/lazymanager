@@ -1,0 +1,15 @@
+name = "ayu-dark"
+
+[colors]
+background = "#0B0E14"
+foreground = "#BFBDB6"
+accent = "#E6B450"
+border_active = "#E6B450"
+border_inactive = "#565B66"
+title = "#59C2FF"
+selected_bg = "#1B3A5B"
+selected_fg = "#BFBDB6"
+dim = "#565B66"
+success = "#AAD94C"
+warning = "#FF8F40"
+error = "#D95757"
