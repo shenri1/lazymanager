@@ -236,3 +236,28 @@ func TestCmdSudo(t *testing.T) {
 		}
 	})
 }
+
+func TestParseListEdgeCases(t *testing.T) {
+	cases := []struct {
+		name, in string
+		want     []Package
+	}{
+		{"cargo root, section, dupes",
+			"myproj v0.1.0 (/home/x)\nserde v1.0.0\nserde v1.0.0 (*)\n\n[dev-dependencies]\ntokio v1.0.0\n",
+			[]Package{{"serde", "v1.0.0"}, {"tokio", "v1.0.0"}}},
+		{"pip direct reference", "foo @ file:///tmp/foo\nbar==1.2\n",
+			[]Package{{"foo", "file:///tmp/foo"}, {"bar", "1.2"}}},
+	}
+	for _, c := range cases {
+		if got := ParseList(c.in); !reflect.DeepEqual(got, c.want) {
+			t.Errorf("%s: ParseList = %v, want %v", c.name, got, c.want)
+		}
+	}
+}
+
+func TestParseOutdatedBrewCask(t *testing.T) {
+	got := ParseOutdated("foo (1.0) != 1.1\n", 1)
+	if want := []Package{{"foo", "1.1"}}; !reflect.DeepEqual(got, want) {
+		t.Errorf("ParseOutdated = %v, want %v", got, want)
+	}
+}

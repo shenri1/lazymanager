@@ -6,10 +6,17 @@ import "strings"
 // version", "name==version", "name@version" and npm-style tree lines.
 func ParseList(out string) []Package {
 	var pkgs []Package
+	seen := map[string]bool{} // cargo tree repeats deps marked "(*)"
+	first := true
 	for _, line := range strings.Split(out, "\n") {
 		line = strings.TrimSpace(line)
 		line = strings.TrimLeft(line, "├└─│`+ ")
 		if line == "" {
+			continue
+		}
+		isFirst := first
+		first = false
+		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
 			continue
 		}
 		if strings.HasPrefix(line, "Listing") ||
@@ -28,10 +35,17 @@ func ParseList(out string) []Package {
 			continue // npm/pnpm: empty tree marker or "project@1.0 /path" root line
 		}
 
+		// cargo tree: the first line is the root crate, "name v1.0.0 (/path)".
+		if isFirst && len(fields) > 2 && strings.HasPrefix(fields[2], "(/") {
+			continue
+		}
+
 		var name, version string
 		if i := strings.Index(line, "=="); i > 0 {
 			name = strings.TrimSpace(line[:i])
 			version = strings.TrimSpace(line[i+2:])
+		} else if len(fields) > 2 && fields[1] == "@" {
+			name, version = fields[0], fields[2] // pip: "foo @ file:///tmp/foo"
 		} else {
 			name = fields[0]
 			if len(fields) > 1 {
@@ -44,9 +58,10 @@ func ParseList(out string) []Package {
 				name = name[:i]
 			}
 		}
-		if name == "" {
+		if name == "" || seen[name] {
 			continue
 		}
+		seen[name] = true
 		pkgs = append(pkgs, Package{Name: name, Version: version})
 	}
 	return pkgs
@@ -97,7 +112,7 @@ func ParseOutdated(out string, col int) []Package {
 
 func hasArrow(fields []string) bool {
 	for _, f := range fields {
-		if f == "->" || f == "<" {
+		if f == "->" || f == "<" || f == "!=" {
 			return true
 		}
 	}
