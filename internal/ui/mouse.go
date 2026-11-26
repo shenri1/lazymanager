@@ -140,12 +140,12 @@ func (m model) wheel(panel, dir int) (tea.Model, tea.Cmd) {
 		m.updCursor = clamp(m.updCursor+dir, 0, len(m.updates)-1)
 	case focusDetails:
 		if dir < 0 {
-			m.details.LineUp(3)
+			m.details.ScrollUp(3)
 			if m.running {
 				m.runFollow = false
 			}
 		} else {
-			m.details.LineDown(3)
+			m.details.ScrollDown(3)
 		}
 	}
 	return m, nil

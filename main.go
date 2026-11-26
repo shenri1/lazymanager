@@ -72,7 +72,7 @@ func main() {
 		case !manager.IsTrusted(abs):
 			fmt.Printf("%s contains project files. Listing dependencies may run code from this repo.\nTrust this directory? [y/N] ", abs)
 			var ans string
-			fmt.Scanln(&ans)
+			_, _ = fmt.Scanln(&ans)
 			if ans == "y" || ans == "Y" {
 				if err := manager.Trust(abs); err != nil {
 					fmt.Fprintln(os.Stderr, "lazymanager: could not save trust:", err)

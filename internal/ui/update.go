@@ -539,12 +539,12 @@ func (m model) moveBy(dir, n int) (tea.Model, tea.Cmd) {
 		m.updCursor = clamp(m.updCursor+dir*n, 0, len(m.updates)-1)
 	case focusDetails:
 		if dir < 0 {
-			m.details.LineUp(n)
+			m.details.ScrollUp(n)
 			if m.running {
 				m.runFollow = false
 			}
 		} else {
-			m.details.LineDown(n)
+			m.details.ScrollDown(n)
 		}
 	}
 	return m, nil
