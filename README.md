@@ -1,97 +1,93 @@
 # lazymanager
 
-TUI para gerenciar pacotes, no estilo do lazygit/lazydocker. Reúne os
-gerenciadores do sistema (Linux, *BSD, Homebrew no macOS) e, quando executado
-dentro de um repositório, também o gerenciador de pacotes do projeto.
+A TUI package manager inspired by lazygit and lazydocker. It brings together system package managers (Linux, *BSD, and Homebrew on macOS) and, when running inside a repository, the project's package manager as well.
 
-## Instalação
+## Installation
 
 ```sh
-go install .
+go install github.com/shenri1/lazymanager@v0.1.0
 ```
 
-Ou, a partir do código-fonte:
+Or, build from source:
 
 ```sh
 go build -o lazymanager .
 ```
 
-## Uso
+## Usage
 
 ```sh
-lazymanager            # inspeciona o diretório atual
-lazymanager -C ~/proj  # inspeciona outro diretório
+lazymanager            # Inspects the current directory
+lazymanager -C ~/proj  # Inspects another directory
 lazymanager --version
 ```
 
-## Teclas
+## Keybindings
 
-| Tecla | Ação |
+| Key | Action |
 | --- | --- |
-| `tab` / `shift+tab` | Alterna o painel focado |
-| `1` `2` `3` `4` / `h` `l` / `←` `→` | Foca gerenciadores / pacotes / atualizações / detalhes |
-| `j` `k` / `↑` `↓` | Move a seleção |
-| `pgup` / `pgdown` | Move uma página nas listas / rola os detalhes |
-| `g` / `G` | Início / fim |
-| mouse | Clique foca e seleciona; a roda move a lista ou rola os detalhes |
-| `/` | Filtra pacotes (case-insensitive; `esc` limpa) |
-| `s` | Busca no repositório remoto |
-| `i` | Instala um pacote |
-| `d` | Remove o pacote selecionado (confirma) |
-| `u` | Atualiza o pacote ou atualização selecionada (confirma) |
-| `U` | Atualiza todos (confirma) |
-| `A` | Atualiza tudo: todos os gerenciadores do sistema com atualizações pendentes |
-| `r` | Recarrega pacotes e atualizações do gerenciador atual |
-| `enter` | Carrega os detalhes do pacote ou atualização |
-| `?` | Ajuda |
-| `q` / `ctrl+c` | Sai |
+| `tab` / `shift+tab` | Switches the focused panel |
+| `1` `2` `3` `4` / `h` `l` / `←` `→` | Focuses Managers / Packages / Updates / Details |
+| `j` `k` / `↑` `↓` | Moves the selection |
+| `pgup` / `pgdown` | Moves one page in lists / scrolls Details |
+| `g` / `G` | Jumps to the beginning / end |
+| mouse | Click to focus and select; scroll wheel moves the list or scrolls Details |
+| `/` | Filters packages (case-insensitive; `esc` clears the filter) |
+| `s` | Searches the remote repository |
+| `i` | Installs a package |
+| `d` | Removes the selected package (confirmation required) |
+| `u` | Upgrades the selected package or update (confirmation required) |
+| `U` | Upgrades all packages (confirmation required) |
+| `A` | Upgrades everything: all system managers with pending updates |
+| `r` | Reloads packages and updates for the current manager |
+| `enter` | Loads package or update details |
+| `?` | Shows help |
+| `q` / `ctrl+c` | Exits |
 
-Comandos que alteram o sistema rodam dentro da TUI: a saída aparece ao vivo no
-painel **Details**. Quando o `sudo` precisa de senha, um modal mascarado a pede;
-a senha só é enviada ao `sudo -S -v` via stdin (nunca como argumento) e, depois,
-os comandos rodam com `sudo -n`. Isso depende do cache de credenciais do sudo
-(`timestamp_timeout` maior que zero, que é o padrão).
+Commands that modify the system run inside the TUI, with live output displayed in the **Details** panel. When `sudo` requires a password, a masked input modal prompts for it. The password is sent only to `sudo -S -v` through stdin (never as a command-line argument). Subsequent commands run with `sudo -n`.
 
-## Painel de atualizações
+This relies on the sudo credential cache (`timestamp_timeout` greater than zero, which is the default).
 
-Os quatro painéis ficam assim: **Managers**, **Packages** e **Updates** na
-coluna da esquerda, e **Details** na coluna da direita. As atualizações são
-carregadas em segundo plano ao trocar de gerenciador e ficam em cache por nome,
-então voltar a um gerenciador já visitado é instantâneo.
+## Updates Panel
 
-O título mostra `Updates (N)`. Quando o gerenciador não suporta listar
-atualizações, o painel mostra `updates not supported for <nome>`. Quando não há
-nada pendente, aparece um pequeno aviso verde de "all good". A partir de 30
-atualizações (`manyUpdates`) o título ganha `⚠` em amarelo e a barra de status
-mostra um alerta como `dnf: 120 updates pending — press U to upgrade all`.
+The four panels are arranged as follows: **Managers**, **Packages**, and **Updates** in the left column, and **Details** in the right column.
 
-No painel de atualizações, `enter` mostra as informações do pacote em Details,
-`u` atualiza o item selecionado e `U` atualiza tudo, sempre com confirmação.
-Depois de qualquer comando que altere o sistema, pacotes e atualizações são
-recarregados.
+Updates are loaded in the background whenever you switch managers and cached by manager name, making it instantaneous to return to a previously visited manager.
 
-Suportam listagem de atualizações: `apt`, `dnf`, `pacman`, `brew`, `flatpak`,
-`go`, `npm`, `pip`, `uv` e `poetry`. Os demais gerenciadores continuam
-disponíveis para as outras ações, mas mostram que atualizações não são
-suportadas.
+The panel title displays `Updates (N)`. When a manager does not support listing updates, the panel displays `updates not supported for <name>`. When there are no pending updates, a small green "all good" indicator is shown.
 
-## Gerenciadores suportados
+Starting at 30 pending updates (`manyUpdates`), the title displays a yellow `⚠` warning, and the status bar shows an alert such as:
 
-Sistema: `apt`, `dnf`, `pacman`, `zypper`, `apk`, `xbps`, `pkg` (FreeBSD),
-`brew`, `flatpak`.
-
-Projeto: `go` (`go.mod`), `npm` (`package.json`), `pnpm` (`pnpm-lock.yaml`),
-`yarn` (`yarn.lock`), `bun` (`bun.lockb`/`bun.lock`), `cargo` (`Cargo.toml`),
-`uv` (`uv.lock`), `poetry` (`poetry.lock`), `pip` (`requirements.txt`),
-`bundle` (`Gemfile`), `composer` (`composer.json`).
-
-Só aparecem os gerenciadores cujo binário está no `PATH`; os de projeto também
-precisam do arquivo de detecção no diretório inspecionado. Quando existe um
-lockfile de `pnpm`, `yarn` ou `bun`, o `npm` não é oferecido.
-
-## Estrutura
-
+```text
+dnf: 120 updates pending — press U to upgrade all
 ```
+
+In the Updates panel:
+- `enter` displays package information in Details.
+- `u` upgrades the selected item.
+- `U` upgrades everything.
+
+All upgrade operations require confirmation.
+
+After any command that modifies the system, packages and updates are automatically reloaded.
+
+The following managers support update listing: `apt`, `dnf`, `pacman`, `brew`, `flatpak`, `go`, `npm`, `pip`, `uv`, and `poetry`.
+
+Other managers remain available for all their supported operations but display a message indicating that update listing is unsupported.
+
+## Supported Package Managers
+
+**System:** `apt`, `dnf`, `pacman`, `zypper`, `apk`, `xbps`, `pkg` (FreeBSD), `brew`, `flatpak`.
+
+**Project:** `go` (`go.mod`), `npm` (`package.json`), `pnpm` (`pnpm-lock.yaml`), `yarn` (`yarn.lock`), `bun` (`bun.lockb` / `bun.lock`), `cargo` (`Cargo.toml`), `uv` (`uv.lock`), `poetry` (`poetry.lock`), `pip` (`requirements.txt`), `bundle` (`Gemfile`), `composer` (`composer.json`).
+
+Only package managers whose binaries are available in `PATH` are detected. Project-level managers also require their corresponding detection files to be present in the inspected directory.
+
+When a `pnpm`, `yarn`, or `bun` lockfile is detected, `npm` is not offered.
+
+## Project Structure
+
+```text
 .
 ├── main.go
 ├── internal
