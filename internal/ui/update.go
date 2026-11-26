@@ -533,8 +533,9 @@ func (m model) commitPrompt() (tea.Model, tea.Cmd) {
 			m.status = "nothing to install"
 			return m, nil
 		}
-		label := "install " + value
-		return m, m.startMutation(label, []step{{mgr: mgr, cmd: mgr.Cmd(true, mgr.Install, value)}})
+		pkgs := strings.Fields(value)
+		label := "install " + strings.Join(pkgs, ", ")
+		return m, m.startMutation(label, []step{{mgr: mgr, cmd: mgr.Cmd(true, mgr.Install, pkgs...)}})
 	}
 	return m, nil
 }
