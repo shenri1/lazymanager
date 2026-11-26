@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 )
 
 // Manager describes one package manager. Every supported manager is a value in
@@ -102,7 +103,7 @@ func (m Manager) Cmd(mutate bool, action []string, args ...string) *exec.Cmd {
 			return c
 		}
 	}
-	argv :=append(append([]string{}, action...), args...)
+	argv := append(append([]string{}, action...), args...)
 	if mutate && NeedsSudo(m) {
 		argv = append([]string{"sudo", "-n"}, argv...)
 	}
@@ -170,7 +171,8 @@ var ansiEscape = regexp.MustCompile(`\x1b(?:\[[0-9;?]*[ -/]*[@-~]|\][^\x07\x1b]*
 func Sanitize(s string) string {
 	s = ansiEscape.ReplaceAllString(s, "")
 	return strings.Map(func(r rune) rune {
-		if r != '\n' && r != '\t' && unicode.IsControl(r) {
+		// RuneError: invalid byte (e.g. a lone 0x9b, a C1 CSI some terminals honor).
+		if r == utf8.RuneError || (r != '\n' && r != '\t' && unicode.IsControl(r)) {
 			return -1
 		}
 		return r
