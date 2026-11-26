@@ -60,7 +60,7 @@ var Table = []Manager{
 		Upgrade:    []string{"zypper", "update", "-y"},
 		UpgradeAll: []string{"zypper", "update", "-y"},
 		Info:       []string{"rpm", "-qi"},
-		Outdated:   nil, // ponytail: zypper's upgradable output is too messy to parse
+		Outdated:   nil, // zypper's upgradable output is too messy to parse
 	},
 	{
 		Name:       "apk",
@@ -74,7 +74,7 @@ var Table = []Manager{
 		Upgrade:    []string{"apk", "add", "-u"},
 		UpgradeAll: []string{"apk", "upgrade"},
 		Info:       []string{"apk", "info"},
-		Outdated:   nil, // ponytail: apk's upgrade output format is too messy
+		Outdated:   nil, // apk's upgrade output format is too messy
 	},
 	{
 		Name:       "xbps",
@@ -88,7 +88,7 @@ var Table = []Manager{
 		Upgrade:    []string{"xbps-install", "-yu"},
 		UpgradeAll: []string{"xbps-install", "-yu"},
 		Info:       []string{"xbps-query", "-R"},
-		Outdated:   nil, // ponytail: xbps's upgrade output format is too messy
+		Outdated:   nil, // xbps's upgrade output format is too messy
 	},
 	{
 		Name:       "pkg",
@@ -102,7 +102,7 @@ var Table = []Manager{
 		Upgrade:    []string{"pkg", "upgrade", "-y"},
 		UpgradeAll: []string{"pkg", "upgrade", "-y"},
 		Info:       []string{"pkg", "info"},
-		Outdated:   nil, // ponytail: pkg's upgrade output format is too messy
+		Outdated:   nil, // pkg's upgrade output format is too messy
 	},
 	{
 		Name:       "brew",
@@ -176,7 +176,7 @@ var Table = []Manager{
 		UpgradeAll: []string{"pnpm", "update"},
 		Info:       []string{"pnpm", "view"},
 		Detect:     []string{"pnpm-lock.yaml"},
-		Outdated:   nil, // ponytail: pnpm outdated output format not verified
+		Outdated:   nil, // pnpm outdated output format not verified
 	},
 	{
 		Name:       "yarn",
