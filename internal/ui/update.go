@@ -201,6 +201,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if !m.running {
 			return m, nil
 		}
+		if msg.command != nil {
+			m.addCommand(*msg.command)
+		}
 		if msg.done {
 			return m, m.finishRun(msg.err)
 		}
@@ -257,6 +260,27 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 	if m.sudoOpen {
 		return m.handleSudoKey(msg)
+	}
+	if m.showLog {
+		switch m.keys.action(key) {
+		case actQuit:
+			return m.requestQuit()
+		case actCommandLog:
+			m.showLog = false
+		case actUp:
+			m.logScroll = maxInt(0, m.logScroll-1)
+		case actDown:
+			m.logScroll = minInt(m.logScroll+1, m.logMaxScroll())
+		case actPageUp:
+			m.logScroll = maxInt(0, m.logScroll-m.logPageSize())
+		case actPageDown:
+			m.logScroll = minInt(m.logScroll+m.logPageSize(), m.logMaxScroll())
+		default:
+			if key == "esc" {
+				m.showLog = false
+			}
+		}
+		return m, nil
 	}
 	if m.showHelp {
 		switch m.keys.action(key) {
@@ -318,6 +342,9 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case actHelp:
 		m.showHelp = true
 		m.helpScroll = 0
+	case actCommandLog:
+		m.showLog = true
+		m.logScroll = 0
 	case actNextPanel:
 		m.focus = (m.focus + 1) % 4
 	case actPrevPanel:

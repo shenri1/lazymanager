@@ -10,6 +10,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/shenri1/lazymanager/internal/config"
+	"github.com/shenri1/lazymanager/internal/history"
 	"github.com/shenri1/lazymanager/internal/manager"
 	"github.com/shenri1/lazymanager/internal/theme"
 )
@@ -124,6 +125,11 @@ type model struct {
 	statusWarn bool
 	showHelp   bool
 	helpScroll int
+
+	// Mutation commands completed in this session.
+	cmdLog    []history.Entry
+	showLog   bool
+	logScroll int
 }
 
 type packagesMsg struct {
