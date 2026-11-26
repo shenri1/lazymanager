@@ -9,7 +9,9 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/shenri1/lazymanager/internal/config"
 	"github.com/shenri1/lazymanager/internal/manager"
+	"github.com/shenri1/lazymanager/internal/theme"
 )
 
 const (
@@ -18,9 +20,6 @@ const (
 	focusUpdates
 	focusDetails
 )
-
-// manyUpdates is the threshold for the yellow warning in the Updates panel.
-const manyUpdates = 30
 
 type promptKind int
 
@@ -44,6 +43,10 @@ const (
 const everythingUpToDate = "everything is up to date"
 
 type model struct {
+	cfg    config.Config
+	styles styles
+	keys   keymap
+
 	cwd      string
 	managers []manager.Manager
 	mCursor  int
@@ -149,8 +152,28 @@ type searchMsg struct {
 	err   error
 }
 
+// Options carries the loaded configuration and theme into the TUI. The zero
+// value is valid: it uses the built-in defaults.
+type Options struct {
+	Theme    theme.Theme
+	Config   config.Config
+	Warnings []string
+	NoColor  bool
+}
+
 // New builds the TUI model for cwd and the detected managers.
-func New(cwd string, managers []manager.Manager) model {
+func New(cwd string, managers []manager.Manager, opts ...Options) model {
+	var o Options
+	if len(opts) > 0 {
+		o = opts[0]
+	}
+	if o.Config.Keybinding == nil {
+		o.Config = config.Default()
+	}
+	if o.Theme.Name == "" {
+		o.Theme = theme.Default()
+	}
+
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
 
@@ -167,6 +190,9 @@ func New(cwd string, managers []manager.Manager) model {
 	sudoIn.Width = 42
 
 	m := model{
+		cfg:          o.Config,
+		styles:       newStyles(o.Theme, o.Config.GUI.SelectionStyle, o.Config.GUI.NerdFonts, o.NoColor, o.Config.Theme.PaintBackground),
+		keys:         newKeymap(o.Config.Keybinding),
 		cwd:          cwd,
 		managers:     managers,
 		details:      viewport.New(0, 0),
@@ -176,6 +202,10 @@ func New(cwd string, managers []manager.Manager) model {
 		input:        in,
 		updatesCache: make(map[string][]manager.Package),
 		updateWarned: make(map[string]bool),
+	}
+	if len(o.Warnings) > 0 {
+		m.status = strings.Join(o.Warnings, " · ")
+		m.statusWarn = true
 	}
 	if len(managers) == 0 {
 		m.setDetails("Details", "no package managers detected")

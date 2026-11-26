@@ -7,16 +7,9 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 
 	"github.com/shenri1/lazymanager/internal/manager"
 )
-
-var sudoBox = lipgloss.NewStyle().
-	Border(lipgloss.RoundedBorder()).
-	BorderForeground(lipgloss.Color("214")).
-	Padding(1, 2).
-	Width(46)
 
 // maxRunLines caps the live output kept for a running mutation.
 const maxRunLines = 2000
@@ -362,7 +355,7 @@ func (m model) sudoView() string {
 	}
 
 	var b strings.Builder
-	b.WriteString(warnTitle.Render(fit("sudo password", w-2)))
+	b.WriteString(m.styles.warnTitle.Render(fit("sudo password", w-2)))
 	b.WriteString("\n\n")
 	b.WriteString(fit("required to: "+label, w-2))
 	b.WriteString("\n\n")
@@ -371,14 +364,14 @@ func (m model) sudoView() string {
 
 	switch {
 	case m.sudoChecking:
-		b.WriteString(dimText.Render("checking…"))
+		b.WriteString(m.styles.dim.Render("checking…"))
 	case m.sudoErr != "":
-		b.WriteString(errText.Render(fit(m.sudoErr, w-2)))
+		b.WriteString(m.styles.err.Render(fit(m.sudoErr, w-2)))
 	default:
 		b.WriteString(" ")
 	}
 	b.WriteString("\n")
-	b.WriteString(dimText.Render(fit("enter confirm · esc cancel", w-2)))
+	b.WriteString(m.styles.dim.Render(fit("enter confirm · esc cancel", w-2)))
 
-	return sudoBox.Render(b.String())
+	return m.styles.sudoBox.Render(b.String())
 }

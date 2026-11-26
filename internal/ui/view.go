@@ -10,27 +10,6 @@ import (
 	"github.com/shenri1/lazymanager/internal/manager"
 )
 
-// ---- styles ----------------------------------------------------------------
-
-var (
-	focusedPanel = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("42"))
-	dimPanel = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("240"))
-	titleStyle   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("252"))
-	warnTitle    = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("214"))
-	selectedItem = lipgloss.NewStyle().Background(lipgloss.Color("237")).Foreground(lipgloss.Color("255"))
-	dimText      = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-	errText      = lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
-	statusText   = lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
-	warnText     = lipgloss.NewStyle().Foreground(lipgloss.Color("214"))
-	allGoodText  = lipgloss.NewStyle().Foreground(lipgloss.Color("42"))
-	okTitle      = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("42"))
-	errTitle     = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("196"))
-)
-
 // ---- layout ----------------------------------------------------------------
 
 type layout struct {
@@ -95,13 +74,13 @@ func (m model) View() string {
 		for i := range lines {
 			lines[i] = fit(lines[i], m.width)
 		}
-		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, warnText.Render(strings.Join(lines, "\n")))
+		return m.styles.paintScreen(lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, m.styles.warn.Render(strings.Join(lines, "\n"))))
 	}
 	if m.showHelp {
-		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, m.helpView())
+		return m.styles.paintScreen(lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, m.helpView()))
 	}
 	if m.sudoOpen {
-		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, m.sudoView())
+		return m.styles.paintScreen(lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, m.sudoView()))
 	}
 
 	l := m.layout()
@@ -111,46 +90,49 @@ func (m model) View() string {
 	}
 
 	mgrBody := m.managerLines(innerLeft, l.mgrH-3)
-	mgrPanel := renderPanel("Managers", mgrBody, l.leftW, l.mgrH, m.focus == focusManagers, false, "")
+	mgrTitle := m.styles.titleWith(m.styles.icons.managers, "Managers")
+	mgrPanel := m.renderPanel(mgrTitle, mgrBody, l.leftW, l.mgrH, m.focus == focusManagers, false, "", m.styles.title)
 
 	pkgTitle := "Packages"
 	if m.filter != "" {
 		pkgTitle = "Packages /" + m.filter
 	}
+	pkgTitle = m.styles.titleWith(m.styles.icons.packages, pkgTitle)
 	pkgBody := m.packageLines(innerLeft, l.pkgH-3)
-	pkgPanel := renderPanel(pkgTitle, pkgBody, l.leftW, l.pkgH, m.focus == focusPackages, m.loadPkgs, m.spin.View())
+	pkgPanel := m.renderPanel(pkgTitle, pkgBody, l.leftW, l.pkgH, m.focus == focusPackages, m.loadPkgs, m.spin.View(), m.styles.title)
 
 	updTitle, updStyle := m.updatesTitle()
+	updTitle = m.styles.titleWith(m.styles.icons.updates, updTitle)
 	updBody := m.updateLines(innerLeft, l.updH-3)
-	updPanel := renderPanelStyle(updTitle, updBody, l.leftW, l.updH, m.focus == focusUpdates, m.loadUpdates, m.spin.View(), updStyle)
+	updPanel := m.renderPanel(updTitle, updBody, l.leftW, l.updH, m.focus == focusUpdates, m.loadUpdates, m.spin.View(), updStyle)
 
 	left := lipgloss.JoinVertical(lipgloss.Left, mgrPanel, pkgPanel, updPanel)
 
 	detailBody := m.detailLines(maxInt(1, l.rightW-2))
-	detailsTitle := m.detailsTitle
-	detailsStyle := titleStyle
+	detailsTitle := m.styles.titleWith(m.styles.icons.details, m.detailsTitle)
+	detailsStyle := m.styles.title
 	loading := m.loadInfo
 	if m.running {
 		detailsTitle = m.spin.View() + " " + m.runLabel
 		loading = false
 	} else if m.runDone {
 		if m.runErr != nil {
-			detailsTitle = fmt.Sprintf("✗ %s (exit %d)", m.runLabel, exitCode(m.runErr))
-			detailsStyle = errTitle
+			detailsTitle = fmt.Sprintf("%s %s (exit %d)", m.styles.icons.error, m.runLabel, exitCode(m.runErr))
+			detailsStyle = m.styles.errTitle
 		} else {
-			detailsTitle = "✓ " + m.runLabel
-			detailsStyle = okTitle
+			detailsTitle = m.styles.icons.check + " " + m.runLabel
+			detailsStyle = m.styles.okTitle
 		}
 	}
-	detailsPanel := renderPanelStyle(detailsTitle, detailBody, l.rightW, l.bodyH, m.focus == focusDetails, loading, m.spin.View(), detailsStyle)
+	detailsPanel := m.renderPanel(detailsTitle, detailBody, l.rightW, l.bodyH, m.focus == focusDetails, loading, m.spin.View(), detailsStyle)
 	body := lipgloss.JoinHorizontal(lipgloss.Top, left, detailsPanel)
 
-	return lipgloss.JoinVertical(lipgloss.Left, body, m.statusBar())
+	return m.styles.paintScreen(lipgloss.JoinVertical(lipgloss.Left, body, m.statusBar()))
 }
 
 func (m model) managerLines(w, visible int) []string {
 	if len(m.managers) == 0 {
-		return []string{dimText.Render(fit("no package managers detected", w))}
+		return []string{m.styles.dim.Render(fit("no package managers detected", w))}
 	}
 	if visible < 1 {
 		return nil
@@ -165,8 +147,9 @@ func (m model) managerLines(w, visible int) []string {
 }
 
 // managerLine renders one manager with its cached pending-update badge, e.g.
-// "dnf  5↑". The badge is green, or yellow at the manyUpdates threshold.
+// "dnf  5↑". The badge is green, or yellow at the many-updates threshold.
 func (m model) managerLine(mgr manager.Manager, selected bool, w int) string {
+	focused := m.focus == focusManagers
 	text := mgr.Name
 	if mgr.Kind == "project" {
 		text += " (project)"
@@ -174,32 +157,27 @@ func (m model) managerLine(mgr manager.Manager, selected bool, w int) string {
 	pkgs, known := m.updatesCache[mgr.Name]
 	n := len(pkgs)
 	var suffix string
-	countStyle := allGoodText
+	countStyle := m.styles.allGood
 	switch {
 	case m.updatesFailed[mgr.Name] != "":
-		suffix, countStyle = "!", errText // update listing failed
+		suffix, countStyle = m.styles.icons.failure, m.styles.err // update listing failed
 	case known && n > 0:
-		suffix = fmt.Sprintf("%d↑", n)
-		if n >= manyUpdates {
-			countStyle = warnText
+		suffix = fmt.Sprintf("%d%s", n, m.styles.icons.updateBadge)
+		if n >= m.cfg.Managers.ManyUpdatesThreshold {
+			countStyle = m.styles.warn
 		}
 	default:
-		return listItem(text, selected, w)
+		return m.listItem(text, selected, focused, w)
 	}
 	plain := text + "  " + suffix
 	avail := maxInt(0, w-2)
 	if ansi.StringWidth(plain) > avail {
-		return listItem(fit(plain, avail), selected, w)
+		return m.listItem(fit(plain, avail), selected, focused, w)
 	}
 
 	if selected {
-		countStyle = countStyle.Background(lipgloss.Color("237"))
-		base := "▸ " + text + "  "
-		pad := ""
-		if used := ansi.StringWidth(base) + ansi.StringWidth(suffix); used < w {
-			pad = strings.Repeat(" ", w-used)
-		}
-		return selectedItem.Render(base) + countStyle.Render(suffix) + selectedItem.Render(pad)
+		row := m.styles.icons.pointer + " " + plain
+		return m.styles.selection(focused).Render(padRight(fit(row, w), w))
 	}
 	return "  " + text + "  " + countStyle.Render(suffix)
 }
@@ -210,7 +188,7 @@ func (m model) packageLines(w, visible int) []string {
 		if len(m.packages) > 0 {
 			msg = "no matching packages"
 		}
-		return []string{dimText.Render(fit(msg, w))}
+		return []string{m.styles.dim.Render(fit(msg, w))}
 	}
 	if visible < 1 {
 		return nil
@@ -218,13 +196,14 @@ func (m model) packageLines(w, visible int) []string {
 	start := scrollStart(m.pCursor, len(m.filtered), visible)
 	end := minInt(start+visible, len(m.filtered))
 	var lines []string
+	focused := m.focus == focusPackages
 	for i := start; i < end; i++ {
 		pkg := m.filtered[i]
 		text := pkg.Name
 		if pkg.Version != "" {
 			text += "  " + pkg.Version
 		}
-		lines = append(lines, listItem(text, i == m.pCursor, w))
+		lines = append(lines, m.listItem(text, i == m.pCursor, focused, w))
 	}
 	return lines
 }
@@ -232,42 +211,43 @@ func (m model) packageLines(w, visible int) []string {
 func (m model) updatesTitle() (string, lipgloss.Style) {
 	mgr, ok := m.currentManager()
 	if !ok || len(mgr.Outdated) == 0 {
-		return "Updates", titleStyle
+		return "Updates", m.styles.title
 	}
 	if m.loadUpdates || m.updatesErr != "" {
-		return "Updates", titleStyle
+		return "Updates", m.styles.title
 	}
 	n := len(m.updates)
 	title := fmt.Sprintf("Updates (%d)", n)
-	if n >= manyUpdates {
-		title += " ⚠"
-		return title, warnTitle
+	if n >= m.cfg.Managers.ManyUpdatesThreshold {
+		title += " " + m.styles.icons.warning
+		return title, m.styles.warnTitle
 	}
-	return title, titleStyle
+	return title, m.styles.title
 }
 
 func (m model) updateLines(w, visible int) []string {
 	mgr, ok := m.currentManager()
 	if !ok {
-		return []string{dimText.Render(fit("no manager selected", w))}
+		return []string{m.styles.dim.Render(fit("no manager selected", w))}
 	}
 	if len(mgr.Outdated) == 0 {
-		return []string{dimText.Render(fit("updates not supported for "+mgr.Name, w))}
+		return []string{m.styles.dim.Render(fit("updates not supported for "+mgr.Name, w))}
 	}
 	if m.updatesErr != "" {
-		return []string{errText.Render(fit(m.updatesErr, w))}
+		return []string{m.styles.err.Render(fit(m.updatesErr, w))}
 	}
 	if m.loadUpdates && len(m.updates) == 0 {
-		return []string{dimText.Render(fit("loading updates…", w))}
+		return []string{m.styles.dim.Render(fit("loading updates…", w))}
 	}
 	if len(m.updates) == 0 {
-		return allGoodLines(w, visible)
+		return m.allGoodLines(w, visible)
 	}
 	if visible < 1 {
 		return nil
 	}
 	start := scrollStart(m.updCursor, len(m.updates), visible)
 	end := minInt(start+visible, len(m.updates))
+	focused := m.focus == focusUpdates
 	var lines []string
 	for i := start; i < end; i++ {
 		pkg := m.updates[i]
@@ -275,19 +255,19 @@ func (m model) updateLines(w, visible int) []string {
 		if pkg.Version != "" {
 			text += "  " + pkg.Version
 		}
-		lines = append(lines, listItem(text, i == m.updCursor, w))
+		lines = append(lines, m.listItem(text, i == m.updCursor, focused, w))
 	}
 	return lines
 }
 
-// allGoodLines renders a small green "all good" picture, centered.
-func allGoodLines(w, visible int) []string {
-	art := []string{fit("✓", w), fit("up to date", w)}
+// allGoodLines renders a small "all good" picture, centered.
+func (m model) allGoodLines(w, visible int) []string {
+	art := []string{fit(m.styles.icons.check, w), fit("up to date", w)}
 	top := 0
 	if visible >= len(art)+2 {
 		top = (visible - len(art)) / 2
 	}
-	center := allGoodText.Width(w).Align(lipgloss.Center)
+	center := m.styles.allGood.Width(w).Align(lipgloss.Center)
 	lines := make([]string, 0, top+len(art))
 	for i := 0; i < top; i++ {
 		lines = append(lines, "")
@@ -345,58 +325,44 @@ func (m model) statusBar() string {
 	}
 	if m.status != "" {
 		if m.statusErr {
-			return errText.Render(fit(m.status, m.width))
+			return m.styles.err.Render(fit(m.styles.icons.error+" "+m.status, m.width))
 		}
 		if m.statusWarn {
-			return warnText.Render(fit(m.status, m.width))
+			return m.styles.warn.Render(fit(m.styles.icons.warning+" "+m.status, m.width))
 		}
 		if m.status == everythingUpToDate {
-			return allGoodText.Render(fit(m.status, m.width))
+			return m.styles.allGood.Render(fit(m.styles.icons.check+" "+m.status, m.width))
 		}
-		return statusText.Render(fit(m.status, m.width))
+		return m.styles.status.Render(fit(m.status, m.width))
 	}
+	k := m.keys
 	var hints string
 	switch m.focus {
 	case focusManagers:
-		hints = "j/k move · s search · i install · A upgrade everything · r refresh · tab focus · ? help · q quit"
+		hints = fmt.Sprintf("%s move · %s search · %s install · %s upgrade everything · %s refresh · %s focus · %s help · %s quit",
+			k.hint(actUp, actDown), k.label(actSearch), k.label(actInstall), k.label(actUpgradeEverything),
+			k.label(actRefresh), k.label(actNextPanel), k.label(actHelp), k.label(actQuit))
 	case focusPackages:
-		hints = "j/k move · / filter · enter info · i install · d remove · u upgrade · U upgrade-all"
+		hints = fmt.Sprintf("%s move · %s filter · %s info · %s install · %s remove · %s upgrade · %s upgrade-all",
+			k.hint(actUp, actDown), k.label(actFilter), k.label(actInfo), k.label(actInstall),
+			k.label(actRemove), k.label(actUpgrade), k.label(actUpgradeAll))
 	case focusUpdates:
-		hints = "j/k move · enter info · u upgrade · U upgrade-all · A upgrade everything · r refresh · tab focus"
+		hints = fmt.Sprintf("%s move · %s info · %s upgrade · %s upgrade-all · %s upgrade everything · %s refresh · %s focus",
+			k.hint(actUp, actDown), k.label(actInfo), k.label(actUpgrade), k.label(actUpgradeAll),
+			k.label(actUpgradeEverything), k.label(actRefresh), k.label(actNextPanel))
 	case focusDetails:
-		hints = "j/k scroll · pgup/pgdn page · g/G top/bottom · tab focus · ? help · q quit"
+		hints = fmt.Sprintf("%s scroll · %s page · %s/%s top/bottom · %s focus · %s help · %s quit",
+			k.hint(actUp, actDown), k.hint(actPageUp, actPageDown), k.label(actTop), k.label(actBottom),
+			k.label(actNextPanel), k.label(actHelp), k.label(actQuit))
 	}
-	return statusText.Render(fit(hints, m.width))
+	return m.styles.status.Render(fit(hints, m.width))
 }
-
-const helpText = `lazymanager — keys
-
-  tab / shift+tab    switch panel
-  ← → / h l          previous / next panel
-  1 2 3 4            managers / packages / updates / details
-  j k ↑ ↓            move
-  pgup pgdown        move a page / scroll details
-  g G                top / bottom
-  /                  filter packages
-  s                  search remote
-  i                  install
-  d                  remove selected package
-  u                  upgrade selected package or update
-  U                  upgrade all
-  A                  upgrade everything (all system managers with updates)
-  r                  refresh packages and updates
-  enter              load info
-  ?                  close help
-  q / ctrl+c         quit
-
-  mouse              click to focus/select, wheel to move/scroll
-  esc                cancel prompt / clear filter`
 
 // helpWindow returns how many body lines (everything under the title) fit and
 // the clamped scroll offset into them.
 func (m model) helpWindow() (visible, offset int) {
-	body := strings.Count(helpText, "\n") // lines after the title
-	visible = minInt(body, m.height-3)    // border top/bottom + title
+	body := strings.Count(helpText(m.keys), "\n") // lines after the title
+	visible = minInt(body, m.height-3)            // border top/bottom + title
 	offset = clamp(m.helpScroll, 0, maxInt(0, body-visible))
 	return visible, offset
 }
@@ -404,27 +370,27 @@ func (m model) helpWindow() (visible, offset int) {
 // helpView fits the key list to the terminal; when it is taller than the
 // screen the title stays and the body becomes a window that j/k scroll.
 func (m model) helpView() string {
-	lines := strings.Split(helpText, "\n")
+	lines := strings.Split(helpText(m.keys), "\n")
 	title, body := lines[0], lines[1:]
 	visible, offset := m.helpWindow()
 	if visible < len(body) {
-		title += " (j/k scroll)"
+		hint := m.keys.hint(actUp, actDown)
+		if hint == "" {
+			hint = "j/k"
+		}
+		title += " (" + hint + " scroll)"
 	}
 	lines = append([]string{title}, body[offset:offset+visible]...)
 	w := minInt(76, m.width-4) // border + 1 col padding each side
 	for i := range lines {
 		lines[i] = fit(lines[i], w)
 	}
-	return dimPanel.Padding(0, 1).Render(strings.Join(lines, "\n"))
+	return m.styles.panelDim.Padding(0, 1).Render(strings.Join(lines, "\n"))
 }
 
 // ---- rendering helpers -----------------------------------------------------
 
-func renderPanel(title string, body []string, w, h int, focused, loading bool, spin string) string {
-	return renderPanelStyle(title, body, w, h, focused, loading, spin, titleStyle)
-}
-
-func renderPanelStyle(title string, body []string, w, h int, focused, loading bool, spin string, tstyle lipgloss.Style) string {
+func (m model) renderPanel(title string, body []string, w, h int, focused, loading bool, spin string, tstyle lipgloss.Style) string {
 	innerW := w - 2
 	innerH := h - 2
 	if innerW < 1 {
@@ -444,16 +410,13 @@ func renderPanelStyle(title string, body []string, w, h int, focused, loading bo
 	for len(lines) < innerH {
 		lines = append(lines, "")
 	}
-	style := dimPanel
-	if focused {
-		style = focusedPanel
-	}
-	return style.Width(innerW).Height(innerH).Render(strings.Join(lines, "\n"))
+	return m.styles.panel(focused).Width(innerW).Height(innerH).Render(strings.Join(lines, "\n"))
 }
 
-func listItem(text string, selected bool, w int) string {
+func (m model) listItem(text string, selected, focused bool, w int) string {
 	if selected {
-		return selectedItem.Render(padRight(fit("▸ "+text, w), w))
+		row := m.styles.icons.pointer + " " + text
+		return m.styles.selection(focused).Render(padRight(fit(row, w), w))
 	}
 	return "  " + fit(text, maxInt(0, w-2))
 }
